@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && next build --webpack",
     "start": "next start",
     "bot": "tsx watch src/bot/index.ts",
     "bot:prod": "tsx src/bot/index.ts",
