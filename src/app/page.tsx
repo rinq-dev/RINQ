@@ -597,22 +597,21 @@ export default function StorefrontPage() {
       {/* Màn hình khóa khi Telegram Bot chưa khởi động */}
       {isBotActive === false && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md text-white text-center">
-          <div className="h-20 w-20 rounded-3xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center mb-5 shadow-2xl animate-pulse">
+          <div className="h-20 w-20 rounded-3xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center mb-5 shadow-2xl animate-pulse">
             <Bot className="h-10 w-10" />
           </div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold border border-rose-500/30 mb-3">
-            <AlertCircle className="h-4 w-4" /> BOT TELEGRAM ĐANG TẮT
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30 mb-3">
+            <AlertCircle className="h-4 w-4" /> HỆ THỐNG ĐANG BẢO TRÌ TẠM THỜI
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Hệ Thống Đang Chờ Khởi Động Telegram Bot
+            Chờ Bot Hoạt Động
           </h2>
           <p className="mt-2 text-slate-300 text-sm max-w-md leading-relaxed">
-            Website chỉ hoạt động khi Telegram Bot đang mở trên máy chủ.
-            Vui lòng nhấp đúp vào file <code className="bg-slate-800 px-2 py-0.5 rounded text-amber-300 font-mono text-xs">run-bot.bat</code> để kích hoạt Bot.
+            Hệ thống đang chờ bot hoạt động, xin lỗi bạn vì sự bất tiện này!
           </p>
           <div className="mt-6 flex items-center gap-2.5 text-xs text-slate-400 bg-slate-900/90 px-4 py-2.5 rounded-2xl border border-slate-800 shadow-inner">
             <RefreshCw className="h-4 w-4 text-emerald-400 animate-spin" />
-            <span>Đang dò tìm tín hiệu... Trang web sẽ tự động mở ngay khi Bot hoạt động.</span>
+            <span>Đang tự động kết nối... Trang web sẽ tự động mở lại ngay khi Bot hoạt động.</span>
           </div>
         </div>
       )}

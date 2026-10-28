@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const botOnline = await isBotOnline();
     if (!botOnline) {
       return NextResponse.json(
-        { error: "Hệ thống tạm ngưng phục vụ vì Telegram Bot chưa khởi động" },
+        { error: "Hệ thống đang chờ bot hoạt động, xin lỗi bạn vì sự bất tiện này!" },
         { status: 503 }
       );
     }
