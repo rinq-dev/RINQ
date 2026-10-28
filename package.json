@@ -1,0 +1,38 @@
+{
+  "name": "rinq-shop",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "bot": "tsx watch src/bot/index.ts",
+    "bot:prod": "tsx src/bot/index.ts",
+    "dev:all": "concurrently \"npm run dev\" \"npm run bot\"",
+    "db:push": "prisma db push",
+    "db:rotate-stock-key": "tsx scripts/rotate-stock-key.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.20.0",
+    "@types/canvas-confetti": "^1.9.0",
+    "canvas-confetti": "^1.9.4",
+    "dotenv": "^16.4.5",
+    "grammy": "^1.30.0",
+    "lucide-react": "^0.446.0",
+    "next": "16.4.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@types/react": "^18.3.10",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.0.1",
+    "postcss": "8.5.32",
+    "prisma": "^5.20.0",
+    "tailwindcss": "^3.4.13",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  }
+}
