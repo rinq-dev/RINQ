@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
   const isDev = process.env.NODE_ENV !== "production";
   const configIsSafe = isDev
     ? configured.length > 0 && secret.length >= 32
-    : configured.length >= 16 && configured.toLowerCase() !== "admin" && secret.length >= 32;
+    : configured.length >= 8 && configured.toLowerCase() !== "admin" && secret.length >= 32;
 
   if (!configIsSafe || !safeEqual(supplied, configured)) {
     const next = current && current.resetAt > now ? current : { count: 0, resetAt: now + WINDOW_MS };
