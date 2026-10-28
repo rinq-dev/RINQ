@@ -11,3 +11,4 @@ coverage/
 *.db-journal
 *.sqlite
 *.zip
+rinq-bot-android/
