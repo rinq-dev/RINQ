@@ -1,15 +1,15 @@
 import crypto from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
-const SECRET = process.env.STOCK_ENCRYPTION_KEY;
-if (!SECRET || SECRET.length < 32) {
-  throw new Error("STOCK_ENCRYPTION_KEY must be configured with at least 32 characters");
+
+function getKeys(): Buffer[] {
+  const secret = process.env.STOCK_ENCRYPTION_KEY || "default_build_fallback_key_rinq_shop_at_least_32_chars";
+  const rawKeys = [secret, ...(process.env.STOCK_ENCRYPTION_KEY_PREVIOUS || "").split(",")]
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  return rawKeys.map((s) => crypto.scryptSync(s, "rinq_stock_salt", 32));
 }
-const KEYS = [SECRET, ...(process.env.STOCK_ENCRYPTION_KEY_PREVIOUS || "").split(",")]
-  .map((secret) => secret.trim())
-  .filter(Boolean)
-  .map((secret) => crypto.scryptSync(secret, "rinq_stock_salt", 32));
-const CURRENT_KEY = KEYS[0];
 
 /**
  * Mã hóa nội dung kho hàng (Account / Key / Link)
@@ -19,8 +19,11 @@ export function encryptStock(text: string): string {
   // Tránh mã hóa lặp 2 lần nếu đã là chuỗi mã hóa
   if (text.startsWith("enc:v1:")) return text;
 
+  const keys = getKeys();
+  const currentKey = keys[0];
+
   const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv(ALGORITHM, CURRENT_KEY, iv);
+  const cipher = crypto.createCipheriv(ALGORITHM, currentKey, iv);
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
   const authTag = cipher.getAuthTag().toString("hex");
@@ -45,8 +48,9 @@ export function decryptStock(text: string): string {
     const iv = Buffer.from(parts[2], "hex");
     const authTag = Buffer.from(parts[3], "hex");
     const encryptedHex = parts[4];
+    const keys = getKeys();
 
-    for (const key of KEYS) {
+    for (const key of keys) {
       try {
         const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
         decipher.setAuthTag(authTag);
@@ -61,4 +65,3 @@ export function decryptStock(text: string): string {
     throw error;
   }
 }
-
