@@ -1,76 +1,10 @@
 import { prisma } from "./prisma";
 
-// Khởi tạo bảng Giveaway & Mã giảm giá nếu chưa có
-export async function initPromoTables() {
-  try {
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS Coupon (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        code TEXT UNIQUE NOT NULL,
-        discount INTEGER NOT NULL,
-        isPercent INTEGER DEFAULT 0,
-        maxUsage INTEGER DEFAULT 100,
-        usedCount INTEGER DEFAULT 0,
-        isActive INTEGER DEFAULT 1,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS Giveaway (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        reward TEXT NOT NULL,
-        description TEXT,
-        winnerCount INTEGER DEFAULT 1,
-        status TEXT DEFAULT 'ACTIVE',
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        endedAt DATETIME
-      )
-    `);
-
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS GiveawayParticipant (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        giveawayId INTEGER NOT NULL,
-        telegramId TEXT NOT NULL,
-        username TEXT,
-        firstName TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(giveawayId, telegramId)
-      )
-    `);
-
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS GiveawayWinner (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        giveawayId INTEGER NOT NULL,
-        telegramId TEXT NOT NULL,
-        username TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-  } catch (error) {
-    console.error("Lỗi khởi tạo promo tables:", error);
-  }
-}
-
-function cleanRow<T = any>(row: any): T {
-  if (!row) return row;
-  const cleaned: any = {};
-  for (const [k, v] of Object.entries(row)) {
-    cleaned[k] = typeof v === "bigint" ? Number(v) : v;
-  }
-  return cleaned as T;
-}
-
 // ---------------- COUPON SERVICES ----------------
 export async function getAllCoupons() {
-  await initPromoTables();
-  const rows = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT * FROM Coupon ORDER BY createdAt DESC`
-  );
-  return rows.map(cleanRow);
+  return await prisma.coupon.findMany({
+    orderBy: { createdAt: "desc" },
+  });
 }
 
 export async function createCoupon({
@@ -84,39 +18,35 @@ export async function createCoupon({
   isPercent: boolean;
   maxUsage: number;
 }) {
-  await initPromoTables();
   const cleanCode = code.trim().toUpperCase();
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO Coupon (code, discount, isPercent, maxUsage, usedCount, isActive) 
-     VALUES (?, ?, ?, ?, 0, 1)`,
-    cleanCode,
-    discount,
-    isPercent ? 1 : 0,
-    maxUsage
-  );
+  await prisma.coupon.create({
+    data: {
+      code: cleanCode,
+      discount,
+      isPercent,
+      maxUsage,
+      usedCount: 0,
+      isActive: true,
+    },
+  });
   return { success: true, code: cleanCode };
 }
 
 export async function toggleCoupon(id: number, targetActive?: boolean) {
-  await initPromoTables();
-  if (targetActive !== undefined) {
-    await prisma.$executeRawUnsafe(
-      `UPDATE Coupon SET isActive = ? WHERE id = ?`,
-      targetActive ? 1 : 0,
-      id
-    );
-  } else {
-    await prisma.$executeRawUnsafe(
-      `UPDATE Coupon SET isActive = CASE WHEN isActive = 1 THEN 0 ELSE 1 END WHERE id = ?`,
-      id
-    );
-  }
+  const existing = await prisma.coupon.findUnique({ where: { id } });
+  if (!existing) return { error: "Không tìm thấy coupon" };
+
+  await prisma.coupon.update({
+    where: { id },
+    data: {
+      isActive: targetActive !== undefined ? targetActive : !existing.isActive,
+    },
+  });
   return { success: true };
 }
 
 export async function deleteCoupon(id: number) {
-  await initPromoTables();
-  await prisma.$executeRawUnsafe(`DELETE FROM Coupon WHERE id = ?`, id);
+  await prisma.coupon.delete({ where: { id } });
   return { success: true };
 }
 
@@ -137,62 +67,43 @@ export async function updateCoupon({
   usedCount?: number;
   isActive?: boolean;
 }) {
-  await initPromoTables();
-  const existing = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT * FROM Coupon WHERE id = ?`,
-    id
-  );
-  if (existing.length === 0) return { error: "Không tìm thấy mã giảm giá" };
-  const current = cleanRow(existing[0]);
+  const existing = await prisma.coupon.findUnique({ where: { id } });
+  if (!existing) return { error: "Không tìm thấy mã giảm giá" };
 
-  const newCode = code !== undefined ? code.trim().toUpperCase() : current.code;
-  const newDiscount = discount !== undefined ? Number(discount) : current.discount;
-  const newIsPercent = isPercent !== undefined ? (isPercent ? 1 : 0) : current.isPercent;
-  const newMaxUsage = maxUsage !== undefined ? Number(maxUsage) : current.maxUsage;
-  const newUsedCount = usedCount !== undefined ? Number(usedCount) : current.usedCount;
-  const newIsActive = isActive !== undefined ? (isActive ? 1 : 0) : current.isActive;
-
-  await prisma.$executeRawUnsafe(
-    `UPDATE Coupon SET code = ?, discount = ?, isPercent = ?, maxUsage = ?, usedCount = ?, isActive = ? WHERE id = ?`,
-    newCode,
-    newDiscount,
-    newIsPercent,
-    newMaxUsage,
-    newUsedCount,
-    newIsActive,
-    id
-  );
+  await prisma.coupon.update({
+    where: { id },
+    data: {
+      code: code !== undefined ? code.trim().toUpperCase() : existing.code,
+      discount: discount !== undefined ? Number(discount) : existing.discount,
+      isPercent: isPercent !== undefined ? isPercent : existing.isPercent,
+      maxUsage: maxUsage !== undefined ? Number(maxUsage) : existing.maxUsage,
+      usedCount: usedCount !== undefined ? Number(usedCount) : existing.usedCount,
+      isActive: isActive !== undefined ? isActive : existing.isActive,
+    },
+  });
 
   return { success: true };
 }
 
 export async function validateCoupon(code: string, originalPrice: number) {
-  await initPromoTables();
   const cleanCode = code.trim().toUpperCase();
-  const rows = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT * FROM Coupon WHERE UPPER(code) = ? AND isActive = 1`,
-    cleanCode
-  );
+  const cp = await prisma.coupon.findUnique({
+    where: { code: cleanCode },
+  });
 
-  if (rows.length === 0) {
+  if (!cp || !cp.isActive) {
     return { valid: false, error: "Mã giảm giá không tồn tại hoặc đã bị tắt" };
   }
 
-  const cp = cleanRow(rows[0]);
-  const usedCount = Number(cp.usedCount || 0);
-  const maxUsage = Number(cp.maxUsage || 100);
-  const discount = Number(cp.discount || 0);
-  const isPercent = Number(cp.isPercent || 0);
-
-  if (usedCount >= maxUsage) {
-    return { valid: false, error: `Mã giảm giá này đã hết lượt sử dụng (${usedCount}/${maxUsage})` };
+  if (cp.usedCount >= cp.maxUsage) {
+    return { valid: false, error: `Mã giảm giá này đã hết lượt sử dụng (${cp.usedCount}/${cp.maxUsage})` };
   }
 
   let discountAmount = 0;
-  if (isPercent === 1) {
-    discountAmount = Math.round((Number(originalPrice) * discount) / 100);
+  if (cp.isPercent) {
+    discountAmount = Math.round((Number(originalPrice) * cp.discount) / 100);
   } else {
-    discountAmount = discount;
+    discountAmount = cp.discount;
   }
 
   const finalPrice = Math.max(1000, Number(originalPrice) - discountAmount);
@@ -205,35 +116,46 @@ export async function validateCoupon(code: string, originalPrice: number) {
 }
 
 export async function incrementCouponUsage(code: string) {
-  await initPromoTables();
-  await prisma.$executeRawUnsafe(
-    `UPDATE Coupon SET usedCount = usedCount + 1 WHERE UPPER(code) = ?`,
-    code.trim().toUpperCase()
-  );
+  await prisma.coupon.update({
+    where: { code: code.trim().toUpperCase() },
+    data: {
+      usedCount: { increment: 1 },
+    },
+  }).catch(() => {});
 }
 
 // ---------------- GIVEAWAY SERVICES ----------------
 export async function getActiveGiveaways() {
-  await initPromoTables();
-  const gas = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT g.*, COUNT(p.id) as participantCount 
-     FROM Giveaway g 
-     LEFT JOIN GiveawayParticipant p ON g.id = p.giveawayId 
-     WHERE g.status = 'ACTIVE' 
-     GROUP BY g.id ORDER BY g.createdAt DESC`
-  );
-  return gas.map(cleanRow);
+  const list = await prisma.giveaway.findMany({
+    where: { status: "ACTIVE" },
+    include: {
+      _count: {
+        select: { participants: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return list.map((g) => ({
+    ...g,
+    participantCount: g._count.participants,
+  }));
 }
 
 export async function getAllGiveaways() {
-  await initPromoTables();
-  const gas = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT g.*, COUNT(p.id) as participantCount 
-     FROM Giveaway g 
-     LEFT JOIN GiveawayParticipant p ON g.id = p.giveawayId 
-     GROUP BY g.id ORDER BY g.createdAt DESC`
-  );
-  return gas.map(cleanRow);
+  const list = await prisma.giveaway.findMany({
+    include: {
+      _count: {
+        select: { participants: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return list.map((g) => ({
+    ...g,
+    participantCount: g._count.participants,
+  }));
 }
 
 export async function createGiveaway({
@@ -247,15 +169,15 @@ export async function createGiveaway({
   description?: string;
   winnerCount: number;
 }) {
-  await initPromoTables();
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO Giveaway (title, reward, description, winnerCount, status) 
-     VALUES (?, ?, ?, ?, 'ACTIVE')`,
-    title.trim(),
-    reward.trim(),
-    description?.trim() || null,
-    winnerCount || 1
-  );
+  await prisma.giveaway.create({
+    data: {
+      title: title.trim(),
+      reward: reward.trim(),
+      description: description?.trim() || null,
+      winnerCount: winnerCount || 1,
+      status: "ACTIVE",
+    },
+  });
   return { success: true };
 }
 
@@ -265,19 +187,18 @@ export async function joinGiveaway(
   username?: string,
   firstName?: string
 ) {
-  await initPromoTables();
   try {
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO GiveawayParticipant (giveawayId, telegramId, username, firstName) 
-       VALUES (?, ?, ?, ?)`,
-      giveawayId,
-      telegramId,
-      username || null,
-      firstName || null
-    );
+    await prisma.giveawayParticipant.create({
+      data: {
+        giveawayId,
+        telegramId: String(telegramId),
+        username: username || null,
+        firstName: firstName || null,
+      },
+    });
     return { success: true, message: "Tham gia thành công" };
   } catch (err: any) {
-    if (String(err).includes("UNIQUE")) {
+    if (String(err).includes("Unique") || String(err).includes("UNIQUE")) {
       return { success: false, alreadyJoined: true, message: "Bạn đã tham gia sự kiện này rồi!" };
     }
     return { success: false, message: "Lỗi tham gia sự kiện" };
@@ -285,51 +206,45 @@ export async function joinGiveaway(
 }
 
 export async function drawGiveawayWinners(giveawayId: number) {
-  await initPromoTables();
-  const gas = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT * FROM Giveaway WHERE id = ?`,
-    giveawayId
-  );
-  if (gas.length === 0) return { error: "Không tìm thấy Giveaway" };
-  const ga = cleanRow(gas[0]);
+  const ga = await prisma.giveaway.findUnique({
+    where: { id: giveawayId },
+    include: { participants: true },
+  });
 
-  const participants = (
-    await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM GiveawayParticipant WHERE giveawayId = ?`,
-      giveawayId
-    )
-  ).map(cleanRow);
-
-  if (participants.length === 0) {
+  if (!ga) return { error: "Không tìm thấy Giveaway" };
+  if (!ga.participants || ga.participants.length === 0) {
     return { error: "Chưa có ai tham gia sự kiện này để quay thưởng" };
   }
 
   // Xáo trộn ngẫu nhiên
-  const shuffled = participants.sort(() => 0.5 - Math.random());
-  const winners = shuffled.slice(0, Math.min(ga.winnerCount, participants.length));
+  const shuffled = [...ga.participants].sort(() => 0.5 - Math.random());
+  const winners = shuffled.slice(0, Math.min(ga.winnerCount, ga.participants.length));
 
   for (const w of winners) {
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO GiveawayWinner (giveawayId, telegramId, username) VALUES (?, ?, ?)`,
-      giveawayId,
-      w.telegramId,
-      w.username
-    );
+    await prisma.giveawayWinner.create({
+      data: {
+        giveawayId,
+        telegramId: w.telegramId,
+        username: w.username || null,
+      },
+    });
   }
 
   // Đánh dấu kết thúc sự kiện
-  await prisma.$executeRawUnsafe(
-    `UPDATE Giveaway SET status = 'ENDED', endedAt = CURRENT_TIMESTAMP WHERE id = ?`,
-    giveawayId
-  );
+  await prisma.giveaway.update({
+    where: { id: giveawayId },
+    data: {
+      status: "ENDED",
+      endedAt: new Date(),
+    },
+  });
 
   return { success: true, winners, ga };
 }
 
 export async function deleteGiveaway(giveawayId: number) {
-  await initPromoTables();
-  await prisma.$executeRawUnsafe(`DELETE FROM GiveawayParticipant WHERE giveawayId = ?`, giveawayId);
-  await prisma.$executeRawUnsafe(`DELETE FROM GiveawayWinner WHERE giveawayId = ?`, giveawayId);
-  await prisma.$executeRawUnsafe(`DELETE FROM Giveaway WHERE id = ?`, giveawayId);
+  await prisma.giveaway.delete({
+    where: { id: giveawayId },
+  });
   return { success: true };
 }

@@ -1,35 +1,17 @@
 import { prisma } from "./prisma";
-import { randomBytes, createHash, createHmac } from "crypto";
-
-export async function initWebAuthTable() {
-  try {
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS WebAuthSession (
-        token TEXT PRIMARY KEY,
-        telegramId TEXT,
-        username TEXT,
-        firstName TEXT,
-        photoUrl TEXT,
-        isVerified INTEGER DEFAULT 0,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        expiresAt DATETIME NOT NULL
-      )
-    `);
-  } catch (error) {
-    console.error("Lỗi khởi tạo bảng WebAuthSession:", error);
-  }
-}
+import { randomBytes } from "crypto";
 
 export async function createWebAuthSession(): Promise<{ token: string; expiresAt: Date }> {
-  await initWebAuthTable();
   const token = randomBytes(16).toString("hex");
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
 
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO WebAuthSession (token, isVerified, expiresAt) VALUES (?, 0, ?)`,
-    token,
-    expiresAt.toISOString()
-  );
+  await prisma.webAuthSession.create({
+    data: {
+      token,
+      isVerified: false,
+      expiresAt,
+    },
+  });
 
   return { token, expiresAt };
 }
@@ -38,25 +20,22 @@ export async function verifyWebAuthSession(
   token: string,
   user: { id: string; username?: string | null; firstName?: string | null; photoUrl?: string | null }
 ): Promise<boolean> {
-  await initWebAuthTable();
-  const now = new Date().toISOString();
+  const session = await prisma.webAuthSession.findUnique({
+    where: { token },
+  });
 
-  const rows = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT token FROM WebAuthSession WHERE token = ? AND expiresAt > ?`,
-    token,
-    now
-  );
+  if (!session || session.expiresAt < new Date()) return false;
 
-  if (rows.length === 0) return false;
-
-  await prisma.$executeRawUnsafe(
-    `UPDATE WebAuthSession SET isVerified = 1, telegramId = ?, username = ?, firstName = ?, photoUrl = ? WHERE token = ?`,
-    String(user.id),
-    user.username || null,
-    user.firstName || null,
-    user.photoUrl || null,
-    token
-  );
+  await prisma.webAuthSession.update({
+    where: { token },
+    data: {
+      isVerified: true,
+      telegramId: String(user.id),
+      username: user.username || null,
+      firstName: user.firstName || null,
+      photoUrl: user.photoUrl || null,
+    },
+  });
 
   // Lưu hoặc cập nhật TelegramUser
   try {
@@ -80,21 +59,15 @@ export async function verifyWebAuthSession(
 }
 
 export async function checkWebAuthSession(token: string) {
-  await initWebAuthTable();
-  const now = new Date().toISOString();
+  const session = await prisma.webAuthSession.findUnique({
+    where: { token },
+  });
 
-  const rows = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT * FROM WebAuthSession WHERE token = ? AND expiresAt > ?`,
-    token,
-    now
-  );
-
-  if (rows.length === 0) {
+  if (!session || session.expiresAt < new Date()) {
     return { valid: false, expired: true };
   }
 
-  const session = rows[0];
-  if (session.isVerified === 1) {
+  if (session.isVerified) {
     return {
       valid: true,
       verified: true,

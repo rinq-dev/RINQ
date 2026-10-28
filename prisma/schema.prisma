@@ -3,24 +3,25 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Product {
-  id          Int         @id @default(autoincrement())
-  name        String
-  price       Int
-  description String?
-  category    String?
+  id                Int         @id @default(autoincrement())
+  name              String
+  price             Int
+  description       String?
+  category          String?
   priceNote         String?
   imageUrl          String?
   supplierVariantId String?
   fulfillmentType   String?     @default("HYBRID")
   isActive          Boolean     @default(true)
-  stocks      StockItem[]
-  orders      Order[]
-  createdAt   DateTime    @default(now())
+  stocks            StockItem[]
+  orders            Order[]
+  createdAt         DateTime    @default(now())
 }
 
 model StockItem {
@@ -58,4 +59,67 @@ model TelegramUser {
   username  String?
   firstName String?
   createdAt DateTime @default(now())
+}
+
+model WebAuthSession {
+  token      String   @id
+  telegramId String?
+  username   String?
+  firstName  String?
+  photoUrl   String?
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([token, isVerified])
+}
+
+model BotHeartbeat {
+  id       Int    @id @default(1)
+  lastPing BigInt
+}
+
+model Coupon {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  discount  Int
+  isPercent Boolean  @default(false)
+  maxUsage  Int      @default(100)
+  usedCount Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Giveaway {
+  id           Int                   @id @default(autoincrement())
+  title        String
+  reward       String
+  description  String?
+  winnerCount  Int                   @default(1)
+  status       String                @default("ACTIVE")
+  createdAt    DateTime              @default(now())
+  endedAt      DateTime?
+  participants GiveawayParticipant[]
+  winners      GiveawayWinner[]
+}
+
+model GiveawayParticipant {
+  id         Int      @id @default(autoincrement())
+  giveawayId Int
+  giveaway   Giveaway @relation(fields: [giveawayId], references: [id], onDelete: Cascade)
+  telegramId String
+  username   String?
+  firstName  String?
+  createdAt  DateTime @default(now())
+
+  @@unique([giveawayId, telegramId])
+}
+
+model GiveawayWinner {
+  id         Int      @id @default(autoincrement())
+  giveawayId Int
+  giveaway   Giveaway @relation(fields: [giveawayId], references: [id], onDelete: Cascade)
+  telegramId String
+  username   String?
+  createdAt  DateTime @default(now())
 }

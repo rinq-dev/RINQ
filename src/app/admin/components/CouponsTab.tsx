@@ -7,7 +7,7 @@ import { Coupon } from "../types";
 interface CouponsTabProps {
   coupons: Coupon[];
   onOpenEditModal: (c: Coupon) => void;
-  onToggleCoupon: (id: number, currentStatus: number) => void;
+  onToggleCoupon: (id: number, currentStatus: number | boolean) => void;
   onDeleteCoupon: (id: number) => void;
   newCouponCode: string;
   setNewCouponCode: (val: string) => void;
@@ -79,7 +79,7 @@ export default function CouponsTab({
                     className="p-1 text-slate-600 hover:text-slate-900"
                     title="Bật/Tắt"
                   >
-                    {c.isActive === 1 ? <Eye className="h-4 w-4 text-[#0e704b]" /> : <EyeOff className="h-4 w-4" />}
+                    {Boolean(c.isActive) ? <Eye className="h-4 w-4 text-[#0e704b]" /> : <EyeOff className="h-4 w-4" />}
                   </button>
                   <button
                     onClick={() => onDeleteCoupon(c.id)}
@@ -92,7 +92,7 @@ export default function CouponsTab({
               </div>
 
               <div className="text-lg font-extrabold text-slate-900 my-1">
-                Giảm {c.isPercent === 1 ? `${c.discount}%` : `${c.discount.toLocaleString("vi-VN")} đ`}
+                Giảm {Boolean(c.isPercent) ? `${c.discount}%` : `${c.discount.toLocaleString("vi-VN")} đ`}
               </div>
 
               <div className="flex items-center justify-between text-xs text-slate-600 pt-2 border-t border-slate-100 mt-2 font-medium">
@@ -100,11 +100,11 @@ export default function CouponsTab({
                 <span className="inline-flex items-center gap-1.5 font-bold">
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${
-                      c.isActive === 1 ? "bg-emerald-500" : "bg-rose-500"
+                      Boolean(c.isActive) ? "bg-emerald-500" : "bg-rose-500"
                     }`}
                   />
-                  <span className={c.isActive === 1 ? "text-emerald-700" : "text-rose-600"}>
-                    {c.isActive === 1 ? "Đang mở" : "Đang tắt"}
+                  <span className={Boolean(c.isActive) ? "text-emerald-700" : "text-rose-600"}>
+                    {Boolean(c.isActive) ? "Đang mở" : "Đang tắt"}
                   </span>
                 </span>
               </div>

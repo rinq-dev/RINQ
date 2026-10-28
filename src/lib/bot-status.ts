@@ -1,46 +1,38 @@
 import { prisma } from "./prisma";
 
-export async function initBotHeartbeatTable() {
+export async function recordBotHeartbeat() {
+  const now = BigInt(Date.now());
   try {
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS BotHeartbeat (
-        id INTEGER PRIMARY KEY DEFAULT 1,
-        lastPing INTEGER NOT NULL
-      )
-    `);
+    await prisma.botHeartbeat.upsert({
+      where: { id: 1 },
+      update: { lastPing: now },
+      create: { id: 1, lastPing: now },
+    });
   } catch (err) {
-    console.error("Lỗi tạo bảng BotHeartbeat:", err);
+    console.warn("Lỗi ghi bot heartbeat:", err);
   }
 }
 
-export async function recordBotHeartbeat() {
-  await initBotHeartbeatTable();
-  const now = Date.now();
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO BotHeartbeat (id, lastPing) VALUES (1, ?)
-     ON CONFLICT(id) DO UPDATE SET lastPing = ?`,
-    now,
-    now
-  );
-}
-
 export async function stopBotHeartbeat() {
-  await initBotHeartbeatTable();
-  await prisma.$executeRawUnsafe(
-    `UPDATE BotHeartbeat SET lastPing = 0 WHERE id = 1`
-  );
+  try {
+    await prisma.botHeartbeat.upsert({
+      where: { id: 1 },
+      update: { lastPing: BigInt(0) },
+      create: { id: 1, lastPing: BigInt(0) },
+    });
+  } catch (err) {
+    console.warn("Lỗi dừng bot heartbeat:", err);
+  }
 }
 
 export async function isBotOnline(): Promise<boolean> {
-  await initBotHeartbeatTable();
   try {
-    const rows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT lastPing FROM BotHeartbeat WHERE id = 1`
-    );
-    if (!rows || rows.length === 0) return false;
-    const lastPing = Number(rows[0].lastPing || 0);
+    const hb = await prisma.botHeartbeat.findUnique({
+      where: { id: 1 },
+    });
+    if (!hb) return false;
+    const lastPing = Number(hb.lastPing);
     const now = Date.now();
-    // Coi là Online nếu Bot cập nhật trong vòng 15 giây qua
     return now - lastPing < 15000;
   } catch {
     return false;

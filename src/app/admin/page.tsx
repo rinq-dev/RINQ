@@ -939,7 +939,7 @@ export default function AdminPage() {
   };
 
   // Toggle trạng thái mã giảm giá
-  const handleToggleCoupon = async (id: number, currentStatus: number) => {
+  const handleToggleCoupon = async (id: number, currentStatus: number | boolean) => {
     try {
       const res = await fetch("/api/admin", {
         method: "POST",
@@ -949,7 +949,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           action: "TOGGLE_COUPON",
           id,
-          isActive: currentStatus === 1 ? false : true,
+          isActive: Boolean(currentStatus) ? false : true,
         }),
       });
       const data = await res.json();

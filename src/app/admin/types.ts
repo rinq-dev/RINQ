@@ -50,10 +50,10 @@ export interface Coupon {
   id: number;
   code: string;
   discount: number;
-  isPercent: number;
+  isPercent: number | boolean;
   maxUsage: number;
   usedCount: number;
-  isActive: number;
+  isActive: number | boolean;
   createdAt: string;
 }
 
