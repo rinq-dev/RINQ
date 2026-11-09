@@ -612,9 +612,12 @@ bot.callbackQuery(/^prod:(\d+)$/, async (ctx) => {
   const priceNoteText = (product as any).priceNote
     ? `<blockquote>📝 <b>Ghi chú:</b>\n${(product as any).priceNote}</blockquote>\n\n`
     : "";
-  const warrantyText = product.warranty?.trim()
-    ? `🛡️ <b>Chính sách bảo hành:</b>\n${product.warranty.trim()}\n\n`
-    : "";
+  let warrantyText = "";
+  if (product.warranty?.trim()) {
+    const rawWarranty = product.warranty.trim();
+    const hasHeader = /chính sách bảo hành/i.test(rawWarranty.split("\n")[0] || "");
+    warrantyText = `<blockquote>${hasHeader ? "" : "⏱ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n"}${rawWarranty}</blockquote>\n\n`;
+  }
 
   // Xóa tin nhắn danh mục cũ để thay thế bằng giao diện chi tiết sản phẩm
   await ctx.deleteMessage().catch(() => {});
