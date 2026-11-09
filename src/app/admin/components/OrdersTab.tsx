@@ -18,8 +18,8 @@ interface OrdersTabProps {
   orders: Order[];
   products: Product[];
   stats: Stats;
-  orderStatusFilter: "ALL" | "PAID" | "PENDING";
-  setOrderStatusFilter: (val: "ALL" | "PAID" | "PENDING") => void;
+  orderStatusFilter: "ALL" | "PAID" | "PENDING" | "FULFILLMENT";
+  setOrderStatusFilter: (val: "ALL" | "PAID" | "PENDING" | "FULFILLMENT") => void;
   orderSearch: string;
   setOrderSearch: (val: string) => void;
   orderProductFilter: string;
@@ -33,12 +33,15 @@ interface OrdersTabProps {
   handleDeleteSelectedOrders: () => void;
   handleClearPendingOrders: () => void;
   handleDeleteOrder: (id: string) => void;
+  handleApproveOrder?: (orderId: string) => void;
   handleSimulatePayment: (orderId: string, amount: number) => void;
+  handleCompleteManualFulfillment: (order: Order) => void;
   isSimulating: boolean;
   isDeletingOrders: boolean;
   filteredAndSortedOrders: Order[];
   copyToClipboard: (text: string, type: any, id?: string) => void;
   copiedOrderId: string | null;
+  allowPaymentSimulation?: boolean;
 }
 
 export default function OrdersTab({
@@ -60,12 +63,15 @@ export default function OrdersTab({
   handleDeleteSelectedOrders,
   handleClearPendingOrders,
   handleDeleteOrder,
+  handleApproveOrder,
   handleSimulatePayment,
+  handleCompleteManualFulfillment,
   isSimulating,
   isDeletingOrders,
   filteredAndSortedOrders,
   copyToClipboard,
   copiedOrderId,
+  allowPaymentSimulation = false,
 }: OrdersTabProps) {
   return (
     <div className="bg-white rounded-[28px] border border-slate-200 p-5 sm:p-6 shadow-sm transition-all hover:shadow-md hover:border-slate-300">
@@ -112,6 +118,16 @@ export default function OrdersTab({
               }`}
           >
             {stats.pendingOrders} Chờ thanh toán
+          </button>
+          <button
+            type="button"
+            onClick={() => setOrderStatusFilter("FULFILLMENT")}
+            className={`px-3 py-1.5 rounded-full font-bold transition-all border ${orderStatusFilter === "FULFILLMENT"
+                ? "bg-orange-700 text-white border-orange-700 shadow-sm"
+                : "bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100"
+              }`}
+          >
+            {stats.fulfillmentPendingOrders ?? orders.filter((o) => o.status === "PAID_PENDING_FULFILLMENT" || o.status === "PROCESSING").length} Cần cấp hàng
           </button>
         </div>
       </div>
@@ -235,6 +251,7 @@ export default function OrdersTab({
           <tbody className="divide-y divide-slate-50">
             {filteredAndSortedOrders.map((o) => {
               const isSelected = selectedOrderIds.includes(o.id);
+              const canDeleteOrder = ["PENDING", "CANCELLED", "EXPIRED"].includes(o.status);
               return (
                 <tr
                   key={o.id}
@@ -245,8 +262,10 @@ export default function OrdersTab({
                     <input
                       type="checkbox"
                       checked={isSelected}
+                      disabled={!canDeleteOrder}
                       onChange={() => toggleSelectOrder(o.id)}
-                      className="h-3.5 w-3.5 rounded border-slate-300 text-[#0e704b] focus:ring-emerald-500 cursor-pointer"
+                      aria-label={canDeleteOrder ? `Chọn đơn ${o.id} để xóa` : `Không thể xóa đơn ${o.id} đã thanh toán`}
+                      className="h-4 w-4 rounded border-slate-300 text-[#0e704b] focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                     />
                   </td>
                   <td className="py-3 font-mono font-bold text-[#0e704b] whitespace-nowrap">
@@ -286,6 +305,21 @@ export default function OrdersTab({
                         <CheckCircle2 className="h-3 w-3" />
                         Đã trả hàng
                       </span>
+                    ) : o.status === "PAID_PENDING_FULFILLMENT" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800 border border-amber-200">
+                        <Clock className="h-3 w-3" />
+                        Đã nhận tiền · Cần cấp hàng
+                      </span>
+                    ) : o.status === "PROCESSING" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800 border border-amber-200">
+                        <Clock className="h-3 w-3" />
+                        Đang xử lý giao dịch
+                      </span>
+                    ) : o.status === "CANCELLED" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-500 border border-slate-200">
+                        <X className="h-3 w-3" />
+                        Đã hủy
+                      </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-100">
                         <Clock className="h-3 w-3" />
@@ -301,13 +335,42 @@ export default function OrdersTab({
                   <td className="py-3 text-right whitespace-nowrap">
                     <div className="inline-flex items-center gap-1.5 justify-end">
                       {o.status === "PENDING" ? (
+                        <div className="flex items-center gap-1">
+                          {handleApproveOrder && (
+                            <button
+                              type="button"
+                              onClick={() => handleApproveOrder(o.id)}
+                              title="Duyệt đơn và tự động cấp tài nguyên cho khách"
+                              className="inline-flex items-center gap-1 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 text-xs font-bold transition shadow-sm active:scale-95"
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+                              <span>Duyệt đơn</span>
+                            </button>
+                          )}
+                          {allowPaymentSimulation && (
+                            <button
+                              type="button"
+                              onClick={() => handleSimulatePayment(o.id, o.totalAmount)}
+                              disabled={isSimulating}
+                              className="inline-flex items-center gap-1 rounded-full bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1 text-xs font-bold transition shadow-sm disabled:opacity-50 active:scale-95"
+                            >
+                              <Zap className="h-3 w-3" />
+                              <span>Giả lập</span>
+                            </button>
+                          )}
+                          {!handleApproveOrder && !allowPaymentSimulation && (
+                            <span className="text-xs text-slate-500">Chờ thanh toán</span>
+                          )}
+                        </div>
+                      ) : o.status === "PAID_PENDING_FULFILLMENT" ? (
                         <button
-                          onClick={() => handleSimulatePayment(o.id, o.totalAmount)}
-                          disabled={isSimulating}
-                          className="inline-flex items-center gap-1 rounded-full bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 text-xs font-bold transition shadow-sm disabled:opacity-50 active:scale-95"
+                          type="button"
+                          onClick={() => handleCompleteManualFulfillment(o)}
+                          disabled={isDeletingOrders}
+                          className="inline-flex items-center gap-1 rounded-full bg-[#0e704b] hover:bg-[#0a5c3d] text-white px-3 py-1 text-xs font-bold transition disabled:opacity-50"
                         >
-                          <Zap className="h-3 w-3" />
-                          <span>Giả lập TT</span>
+                          <Check className="h-3 w-3" />
+                          <span>Cấp key</span>
                         </button>
                       ) : (
                         <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">
@@ -316,7 +379,7 @@ export default function OrdersTab({
                       )}
 
                       {/* Delete Single Order Button */}
-                      <button
+                      {canDeleteOrder && <button
                         type="button"
                         onClick={() => handleDeleteOrder(o.id)}
                         disabled={isDeletingOrders}
@@ -324,7 +387,7 @@ export default function OrdersTab({
                         className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition active:scale-90 disabled:opacity-50"
                       >
                         <Trash2 className="h-4 w-4" />
-                      </button>
+                      </button>}
                     </div>
                   </td>
                 </tr>

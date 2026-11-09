@@ -48,7 +48,7 @@ export default function CouponsTab({
             <p className="text-xs text-slate-600 font-medium">Áp dụng tự động trong bot</p>
           </div>
           <span className="text-xs font-bold rounded-full bg-emerald-50 text-[#0e704b] border border-emerald-100 px-3 py-1">
-            {coupons.filter((c) => c.isActive === 1).length} đang kích hoạt
+            {coupons.filter((c) => Boolean(c.isActive)).length} đang kích hoạt
           </span>
         </div>
 
@@ -57,7 +57,7 @@ export default function CouponsTab({
             <div
               key={c.id}
               className={`p-4 rounded-2xl border transition-all ${
-                c.isActive === 1
+                Boolean(c.isActive)
                   ? "bg-white border-slate-200/80 shadow-sm hover:shadow-md hover:-translate-y-0.5"
                   : "bg-slate-50 border-slate-200 opacity-60"
               }`}

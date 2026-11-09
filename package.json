@@ -4,22 +4,27 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build --webpack",
+    "build": "prisma generate && node scripts/patch-prisma-wasm.js && next build --turbopack && node scripts/prepare-open-next.js",
     "start": "next start",
-    "bot": "tsx watch src/bot/index.ts",
-    "bot:prod": "tsx src/bot/index.ts",
+    "bot": "node scripts/patch-prisma-wasm.js && tsx watch src/bot/index.ts",
+    "bot:prod": "node scripts/patch-prisma-wasm.js && tsx src/bot/index.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run bot\"",
     "db:push": "prisma db push",
-    "db:rotate-stock-key": "tsx scripts/rotate-stock-key.ts"
+    "db:rotate-stock-key": "tsx scripts/rotate-stock-key.ts",
+    "pack:bot": "node scripts/pack-bot-android.js",
+    "sync:bot": "node scripts/serve-bot.js"
   },
   "dependencies": {
-    "@prisma/client": "^5.20.0",
+    "@prisma/adapter-pg": "6.19.3",
+    "@prisma/client": "6.19.3",
     "@types/canvas-confetti": "^1.9.0",
+    "@types/pg": "^8.23.1",
     "canvas-confetti": "^1.9.4",
     "dotenv": "^16.4.5",
     "grammy": "^1.30.0",
     "lucide-react": "^0.446.0",
     "next": "16.4.3",
+    "pg": "8.23.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -31,7 +36,7 @@
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.0.1",
     "postcss": "8.5.32",
-    "prisma": "^5.20.0",
+    "prisma": "6.19.3",
     "tailwindcss": "^3.4.13",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2"

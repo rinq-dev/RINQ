@@ -91,7 +91,7 @@ export async function validateCoupon(code: string, originalPrice: number) {
     where: { code: cleanCode },
   });
 
-  if (!cp || !cp.isActive) {
+  if (!cp || !Boolean(cp.isActive)) {
     return { valid: false, error: "Mã giảm giá không tồn tại hoặc đã bị tắt" };
   }
 
@@ -122,6 +122,40 @@ export async function incrementCouponUsage(code: string) {
       usedCount: { increment: 1 },
     },
   }).catch(() => {});
+}
+
+/** Atomically validate and reserve one coupon use in the transaction creating an order. */
+export async function reserveCouponUse(
+  tx: Pick<typeof prisma, "coupon">,
+  code: string,
+  originalPrice: number
+) {
+  const cleanCode = code.trim().toUpperCase();
+  const coupon = await tx.coupon.findUnique({ where: { code: cleanCode } });
+  if (!coupon || !coupon.isActive) {
+    return { valid: false as const, error: "Mã giảm giá không tồn tại hoặc đã bị tắt" };
+  }
+  if (coupon.usedCount >= coupon.maxUsage) {
+    return { valid: false as const, error: `Mã giảm giá này đã hết lượt sử dụng (${coupon.usedCount}/${coupon.maxUsage})` };
+  }
+
+  const reserved = await tx.coupon.updateMany({
+    where: { id: coupon.id, isActive: true, usedCount: { lt: coupon.maxUsage } },
+    data: { usedCount: { increment: 1 } },
+  });
+  if (reserved.count !== 1) {
+    return { valid: false as const, error: "Mã giảm giá vừa hết lượt sử dụng" };
+  }
+
+  const discountAmount = coupon.isPercent
+    ? Math.round((originalPrice * coupon.discount) / 100)
+    : coupon.discount;
+  return {
+    valid: true as const,
+    code: coupon.code,
+    discountAmount,
+    finalPrice: Math.max(1000, originalPrice - discountAmount),
+  };
 }
 
 // ---------------- GIVEAWAY SERVICES ----------------

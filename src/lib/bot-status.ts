@@ -25,15 +25,25 @@ export async function stopBotHeartbeat() {
   }
 }
 
+let botOnlineCache: { status: boolean; expiresAt: number } | null = null;
+
 export async function isBotOnline(): Promise<boolean> {
+  const now = Date.now();
+  if (botOnlineCache && botOnlineCache.expiresAt > now) {
+    return botOnlineCache.status;
+  }
   try {
     const hb = await prisma.botHeartbeat.findUnique({
       where: { id: 1 },
     });
-    if (!hb) return false;
+    if (!hb) {
+      botOnlineCache = { status: false, expiresAt: now + 10000 };
+      return false;
+    }
     const lastPing = Number(hb.lastPing);
-    const now = Date.now();
-    return now - lastPing < 15000;
+    const online = now - lastPing < 90000;
+    botOnlineCache = { status: online, expiresAt: now + 30000 };
+    return online;
   } catch {
     return false;
   }

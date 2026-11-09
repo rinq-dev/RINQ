@@ -1,8 +1,17 @@
 name = "rinq-shop"
 main = ".open-next/worker.js"
-compatibility_date = "2024-11-01"
+compatibility_date = "2026-10-29"
 compatibility_flags = ["nodejs_compat"]
+
+[limits]
+max_subrequests = 300
 
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
+
+[vars]
+SUPPLIER_BASE_URL = "https://api.roboticvn.com/api/v2"
+SCOOPY_AUTOFULFILL_ENABLED = "true"
+SCOOPY_MAX_ORDER_QUANTITY = "100"
+WEB_APP_URL = "https://rinq-shop.rinq-dev.workers.dev/"

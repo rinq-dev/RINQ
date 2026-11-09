@@ -2,8 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Self-hosted Vietnamese UI font. Keeps the dashboard stable when the network
+   is unavailable and prevents missing glyphs from falling back to a serif. */
+@font-face {
+  font-family: "Be Vietnam Pro";
+  src: url("/fonts/be-vietnam-pro-400.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Be Vietnam Pro";
+  src: url("/fonts/be-vietnam-pro-500.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Be Vietnam Pro";
+  src: url("/fonts/be-vietnam-pro-600.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Be Vietnam Pro";
+  src: url("/fonts/be-vietnam-pro-700.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Be Vietnam Pro";
+  src: url("/fonts/be-vietnam-pro-800.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
+
 :root {
-  --background: #ECEEF0;
+  --background: #f4f6f5;
   --foreground: #1e293b;
 }
 
@@ -31,18 +73,14 @@ body {
 @keyframes slideTabIn {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.996);
-    filter: blur(2px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
   }
 }
 
 .tab-slide-enter {
-  animation: slideTabIn 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: slideTabIn 160ms ease-out;
 }
 
 /* Custom scrollbar for horizontal containers */
@@ -54,26 +92,21 @@ body {
   scrollbar-width: none;
 }
 
-/* High-end Bento Dashboard Background: Crisp modern studio canvas with subtle dot grid */
+/* Shared, quiet light canvas for storefront and admin. */
 .bg-dashboard-grid {
-  background-color: #f0f2f5;
-  background-image: 
-    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.7) 0%, transparent 60%),
-    radial-gradient(rgba(100, 116, 139, 0.12) 1.2px, transparent 1.2px);
-  background-size: 100% 100%, 20px 20px;
-  background-attachment: fixed;
+  background-color: #f4f6f5;
+  background-image: none;
 }
 
 /* Solid Bento Card: 100% opaque, ultra-sharp contrast, premium subtle shadow */
 .bento-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 4px 16px -2px rgba(15, 23, 42, 0.04);
+  border: 1px solid #dfe7e2;
+  box-shadow: none;
 }
 
 .bento-card:hover {
-  border-color: rgba(14, 112, 75, 0.25);
-  box-shadow: 0 10px 25px -3px rgba(14, 112, 75, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.03);
+  border-color: #0e704b;
 }
 
 /* Border beam rotating highlight */
@@ -120,4 +153,89 @@ body {
 }
 .ambient-orb-3 {
   animation: pulseGlow 12s ease-in-out 4s infinite;
+}
+
+/* Swiss International / Bauhaus system for the management console. */
+.swiss-admin {
+  --swiss-paper: #f4f4f4;
+  --swiss-ink: #111111;
+  --swiss-red: #e63946;
+  --swiss-yellow: #f2c94c;
+  --swiss-blue: #2457c5;
+  color: var(--swiss-ink);
+  background-color: var(--swiss-paper);
+  font-family: "Be Vietnam Pro", "Segoe UI", Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+.swiss-admin [class*="rounded-"] {
+  border-radius: 0 !important;
+}
+
+.swiss-admin [class*="shadow-"] {
+  box-shadow: none !important;
+}
+
+/* Keep the payment card's strong rounded silhouette inside the Swiss shell. */
+.swiss-admin .bank-card {
+  border-radius: 24px !important;
+}
+
+.swiss-admin button[class*="bg-[#0e704b]"],
+.swiss-admin button[class*="bg-[#0b5c3d]"],
+.swiss-admin button[class*="bg-[#0a5c3d]"] {
+  background-color: var(--swiss-red) !important;
+  color: white !important;
+}
+
+.swiss-admin header {
+  border: 2px solid var(--swiss-ink) !important;
+  background: white !important;
+}
+
+.swiss-admin nav a[class*="bg-[#0e704b]"],
+.swiss-admin nav a[class*="bg-emerald-600"] {
+  background: var(--swiss-red) !important;
+  color: white !important;
+}
+
+.swiss-admin table thead {
+  border-bottom: 2px solid var(--swiss-ink);
+}
+
+.swiss-admin table tbody tr {
+  border-bottom: 1px solid #d3d3d3;
+}
+
+.swiss-admin input,
+.swiss-admin select,
+.swiss-admin textarea {
+  border-radius: 0 !important;
+}
+
+.swiss-admin main h1,
+.swiss-admin main h2,
+.swiss-admin main h3 {
+  letter-spacing: -0.02em;
+  font-family: "Be Vietnam Pro", "Segoe UI", Arial, sans-serif;
+  font-weight: 700;
+}
+
+.swiss-admin .font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.swiss-admin input:focus,
+.swiss-admin select:focus,
+.swiss-admin textarea:focus,
+.swiss-admin button:focus-visible,
+.swiss-admin a:focus-visible {
+  outline: 2px solid var(--swiss-red);
+  outline-offset: 2px;
+}
+
+.swiss-admin button,
+.swiss-admin a {
+  transition-duration: 120ms;
 }

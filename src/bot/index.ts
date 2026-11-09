@@ -11,15 +11,19 @@ import {
   validateCoupon,
   incrementCouponUsage,
 } from "../lib/promo";
-import { decryptStock } from "../lib/crypto";
+import { decryptStock, encryptStock } from "../lib/crypto";
 import { verifyWebAuthSession } from "../lib/web-auth";
 import { recordBotHeartbeat, stopBotHeartbeat } from "../lib/bot-status";
+import { getCategoryIcon, getCategoryPriority } from "../lib/categories";
+import { syncRoboticPrices } from "../lib/price-sync";
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 if (!BOT_TOKEN) {
   console.error("❌ LỖI: BOT_TOKEN chưa được cấu hình trong file .env");
   process.exit(1);
 }
+
+const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || "8907169582";
 
 const bot = new Bot(BOT_TOKEN);
 
@@ -46,15 +50,9 @@ const BANK_ACCOUNT_NO = process.env.BANK_ACCOUNT_NO || "0123456789";
 const BANK_ACCOUNT_NAME = process.env.BANK_ACCOUNT_NAME || "SHOP ADMIN";
 
 // 1. Menu ReplyKeyboard cố định dưới đáy
-const WEB_APP_URL = process.env.WEB_APP_URL;
-
-const mainMenuKeyboard = new Keyboard();
-if (WEB_APP_URL && WEB_APP_URL.startsWith("http") && !WEB_APP_URL.includes("your-domain")) {
-  mainMenuKeyboard.webApp("🚀 Mở Web Shop (Mini App)", WEB_APP_URL).row();
-}
-mainMenuKeyboard
+const mainMenuKeyboard = new Keyboard()
   .text("🗂 Xem sản phẩm").text("📦 Đơn hàng của tôi").row()
-  .text("🎁 Giveaway").text("❓ Hướng dẫn mua").row()
+  .text("💳 Ví & Số dư").text("🎁 Giveaway").row()
   .text("💬 Liên hệ hỗ trợ")
   .resized();
 
@@ -248,12 +246,17 @@ async function renderCatalog(ctx: any, deletePrevious = false) {
 
   const inlineKeyboard = new InlineKeyboard();
 
-  // Hiển thị danh sách từng Danh Mục để người dùng nhấn vào (VD: Gemini, Netflix...)
-  Array.from(categoriesMap.entries()).forEach(([catName, catProducts]) => {
+  // Hiển thị danh sách từng Danh Mục có sắp xếp ưu tiên và gắn icon nhận diện
+  const sortedCategories = Array.from(categoriesMap.entries()).sort(
+    ([a], [b]) => getCategoryPriority(a) - getCategoryPriority(b)
+  );
+
+  sortedCategories.forEach(([catName, catProducts]) => {
+    const icon = getCategoryIcon(catName);
     const totalStock = catProducts.reduce((sum: number, item: any) => sum + getProductStockCount(item), 0);
     const stockBadge = totalStock > 0 ? `🟢 Còn ${totalStock}` : "🔴 Tạm hết";
     inlineKeyboard
-      .text(`📁 ${catName} · ${catProducts.length} loại (${stockBadge})`, `cat:${catName}`)
+      .text(`${icon} ${catName} · ${catProducts.length} loại (${stockBadge})`, `cat:${catName}`)
       .row();
   });
 
@@ -354,11 +357,12 @@ async function renderCategoryProducts(ctx: any, categoryName: string, deletePrev
   inlineKeyboard.text("🔙 Quay lại danh mục chính", "menu_products").row();
   inlineKeyboard.text("🔄 Làm mới danh mục này", `cat:${categoryName}`).row();
 
+  const catIcon = isAll ? "🌐" : getCategoryIcon(categoryName);
   const title = isAll ? "TẤT CẢ CÁC GÓI SẢN PHẨM" : `DANH MỤC · ${categoryName.toUpperCase()}`;
   const totalStock = products.reduce((acc, cur) => acc + getProductStockCount(cur), 0);
 
   const text =
-    `📁 <b>${title}</b>\n` +
+    `${catIcon} <b>${title}</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `Hiện có <b>${products.length} loại gói</b> sẵn có (Tổng tồn kho: <b>${totalStock}</b> sản phẩm):\n` +
     `Kính mời Quý khách bấm vào gói cần mua bên dưới để xem chi tiết và tiến hành đặt hàng:`;
@@ -724,7 +728,14 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
     `3. Bot sẽ tự động gửi tài khoản/key ngay tại đây sau 3 - 5 giây xác nhận!\n\n` +
     `<i>Xin trân trọng cảm ơn Quý khách đã lựa chọn RINQ SHOP!</i>`;
 
-  const keyboard = new InlineKeyboard().text("🔙 Hủy / Về danh mục", "menu_products");
+  const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
+  const userBalance = userRec?.balance || 0;
+
+  const keyboard = new InlineKeyboard();
+  if (userBalance >= product.price) {
+    keyboard.text(`💳 Thanh toán bằng Số Dư Ví (${userBalance.toLocaleString("vi-VN")}đ)`, `pay_balance:${orderId}`).row();
+  }
+  keyboard.text("🔙 Hủy / Về danh mục", "menu_products");
 
   // Xóa tin nhắn chi tiết trước đó để thay thế bằng giao diện thanh toán
   await ctx.deleteMessage().catch(() => {});
@@ -1001,7 +1012,14 @@ bot.callbackQuery(/^skip_coupon:(\d+):(\d+)$/, async (ctx) => {
     `3. Bot sẽ tự động trả đủ <b>${quantity} tài khoản/key</b> ngay sau 3 - 5 giây!\n\n` +
     `<i>Xin trân trọng cảm ơn Quý khách!</i>`;
 
-  const keyboard = new InlineKeyboard().text("🔙 Hủy / Về danh mục", "menu_products");
+  const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
+  const userBalance = userRec?.balance || 0;
+
+  const keyboard = new InlineKeyboard();
+  if (userBalance >= totalAmount) {
+    keyboard.text(`💳 Thanh toán bằng Số Dư Ví (${userBalance.toLocaleString("vi-VN")}đ)`, `pay_balance:${orderId}`).row();
+  }
+  keyboard.text("🔙 Hủy / Về danh mục", "menu_products");
 
   await ctx.deleteMessage().catch(() => {});
 
@@ -1146,7 +1164,14 @@ bot.on("message:text", async (ctx, next) => {
       `3. Hệ thống sẽ tự động giao đủ <b>${state.quantity} tài nguyên</b> sau 3 - 5 giây!\n\n` +
       `<i>Xin trân trọng cảm ơn Quý khách!</i>`;
 
-    const keyboard = new InlineKeyboard().text("🔙 Hủy / Về danh mục", "menu_products");
+    const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
+    const userBalance = userRec?.balance || 0;
+
+    const keyboard = new InlineKeyboard();
+    if (userBalance >= finalPrice) {
+      keyboard.text(`💳 Thanh toán bằng Số Dư Ví (${userBalance.toLocaleString("vi-VN")}đ)`, `pay_balance:${orderId}`).row();
+    }
+    keyboard.text("🔙 Hủy / Về danh mục", "menu_products");
 
     let sentQrMsg: any = null;
     if (qrBuffer) {
@@ -1268,10 +1293,14 @@ bot.command("buy", async (ctx) => {
     `3. Bot sẽ tự động trả tài khoản/key ngay tại đây sau 3 - 5 giây!\n\n` +
     `<i>Xin trân trọng cảm ơn Quý khách!</i>`;
 
-  const keyboard = new InlineKeyboard().text(
-    "🔙 Hủy / Về danh mục",
-    "menu_products"
-  );
+  const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
+  const userBalance = userRec?.balance || 0;
+
+  const keyboard = new InlineKeyboard();
+  if (userBalance >= finalPrice) {
+    keyboard.text(`💳 Thanh toán bằng Số Dư Ví (${userBalance.toLocaleString("vi-VN")}đ)`, `pay_balance:${orderId}`).row();
+  }
+  keyboard.text("🔙 Hủy / Về danh mục", "menu_products");
 
   let sentQrMsg: any = null;
   if (qrBuffer) {
@@ -1300,6 +1329,754 @@ bot.command("buy", async (ctx) => {
   }
 });
 
+
+// 16. Callback: Khách bấm thanh toán bằng số dư ví
+bot.callbackQuery(/^pay_balance:(DH[A-F0-9]+)$/, async (ctx) => {
+  const telegramId = String(ctx.from.id);
+  const orderId = ctx.match[1];
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { product: true, stocks: true },
+  });
+
+  if (!order || String(order.telegramId) !== telegramId) {
+    await ctx.answerCallbackQuery({ text: "❌ Không tìm thấy đơn hàng!" }).catch(() => {});
+    return;
+  }
+
+  if (order.status === "PAID") {
+    await ctx.answerCallbackQuery({ text: "Đơn hàng này đã thanh toán rồi!" }).catch(() => {});
+    return;
+  }
+
+  const user = await prisma.telegramUser.findUnique({ where: { id: telegramId } });
+  const currentBalance = user?.balance || 0;
+
+  if (currentBalance < order.totalAmount) {
+    await ctx.answerCallbackQuery({
+      text: `Số dư ví không đủ (${currentBalance.toLocaleString("vi-VN")}đ < ${order.totalAmount.toLocaleString("vi-VN")}đ)`,
+      show_alert: true,
+    }).catch(() => {});
+    return;
+  }
+
+  await ctx.answerCallbackQuery({ text: "Đang trừ ví và cấp tài nguyên..." }).catch(() => {});
+
+  // Trừ số dư người dùng
+  await prisma.telegramUser.update({
+    where: { id: telegramId },
+    data: { balance: { decrement: order.totalAmount } },
+  });
+  await prisma.walletTransaction.create({
+    data: {
+      id: `PAY${randomBytes(4).toString("hex").toUpperCase()}`,
+      telegramId,
+      amount: -order.totalAmount,
+      type: "PURCHASE",
+      status: "SUCCESS",
+      description: `Thanh toán đơn hàng #${order.id} (${order.product.name})`,
+    },
+  }).catch(() => {});
+
+  const qty = Math.max(1, order.quantity || 1);
+  let keysToDeliver: string[] = [];
+
+  const availableStocks = await prisma.stockItem.findMany({
+    where: { productId: order.productId, isSold: false, isFaulty: false },
+    take: qty,
+    orderBy: { id: "asc" },
+  });
+
+  if (availableStocks.length >= qty) {
+    await prisma.$transaction(
+      availableStocks.map((s) =>
+        prisma.stockItem.update({
+          where: { id: s.id },
+          data: { isSold: true, orderId: order.id },
+        })
+      )
+    );
+    keysToDeliver = availableStocks.map((s) => decryptStock(s.data));
+  } else if (order.product?.supplierVariantId) {
+    try {
+      const { fulfillFromSupplier } = await import("../lib/supplier-fulfillment");
+      const fRes = await fulfillFromSupplier(order.product.supplierVariantId, qty, order.product?.price || 2_000_000);
+      if (fRes.success && fRes.items.length > 0) {
+        for (const rawKey of fRes.items) {
+          await prisma.stockItem.create({
+            data: {
+              productId: order.productId,
+              data: encryptStock(rawKey),
+              isSold: true,
+              orderId: order.id,
+            },
+          });
+          keysToDeliver.push(rawKey);
+        }
+      }
+    } catch (err) {
+      console.error("Lỗi mua supplier tự động:", err);
+    }
+  }
+
+  const finalStatus = keysToDeliver.length >= qty ? "PAID" : "PAID_PENDING_FULFILLMENT";
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { status: finalStatus, paidAt: new Date() },
+  });
+
+  await ctx.deleteMessage().catch(() => {});
+
+  if (finalStatus === "PAID" && keysToDeliver.length > 0) {
+    await ctx.reply(
+      `🎉 <b>THANH TOÁN BẰNG SỐ DƯ VÍ THÀNH CÔNG!</b>\n\n` +
+      `Đã trừ <b>${order.totalAmount.toLocaleString("vi-VN")} đ</b> từ ví của bạn.\n` +
+      `Số dư ví còn lại: <b>${(currentBalance - order.totalAmount).toLocaleString("vi-VN")} đ</b>\n\n` +
+      `📦 <b>Sản phẩm:</b> ${order.product?.name} (x${qty})\n` +
+      `🔑 <b>Tài nguyên bàn giao:</b>\n` +
+      `<code>${keysToDeliver.map((k, i) => `#${i + 1}: ${k}`).join("\n")}</code>\n\n` +
+      `<blockquote>💡 <i>Chạm vào mã để sao chép. Xin trân trọng cảm ơn Quý khách!</i></blockquote>`,
+      {
+        parse_mode: "HTML",
+        reply_markup: new InlineKeyboard()
+          .text("🛍 Mua tiếp", "menu_products")
+          .row()
+          .url("💬 Hỗ trợ Admin (@rinq_hotro)", "https://t.me/rinq_hotro"),
+      }
+    );
+  } else {
+    await ctx.reply(
+      `✅ <b>ĐÃ THANH TOÁN BẰNG SỐ DƯ VÍ!</b>\n\n` +
+      `Đã trừ <b>${order.totalAmount.toLocaleString("vi-VN")} đ</b> từ ví.\n` +
+      `⏳ Kho đang chuẩn bị tài nguyên mới, Admin sẽ gửi key cho bạn ngay trong ít phút!`,
+      {
+        parse_mode: "HTML",
+        reply_markup: new InlineKeyboard().url("💬 Hỗ trợ Admin (@rinq_hotro)", "https://t.me/rinq_hotro"),
+      }
+    );
+  }
+});
+
+// 17. Lệnh Admin: Duyệt đơn hàng thủ công (/duyet <mã_đơn> [key_thủ_công])
+bot.command("duyet", async (ctx) => {
+  const adminId = String(ctx.from?.id);
+  if (adminId !== ADMIN_TELEGRAM_ID) {
+    await ctx.reply("⛔ Lệnh này chỉ dành riêng cho Admin @rinq_hotro!");
+    return;
+  }
+
+  const parts = (ctx.message?.text || "").trim().split(/\s+/);
+  const orderId = (parts[1] || "").toUpperCase();
+  const customKey = parts.slice(2).join(" ");
+
+  if (!orderId) {
+    await ctx.reply(
+      "📌 <b>CÚ PHÁP DUYỆT ĐƠN:</b>\n" +
+      "<code>/duyet &lt;mã_đơn&gt; [tài_nguyên_nếu_có]</code>\n\n" +
+      "<i>Ví dụ:</i>\n" +
+      "• <code>/duyet DH00EAA491F28FC49D157A3098045D356B</code> (Tự tìm kho hoặc gọi API cấp)\n" +
+      "• <code>/duyet DH00EAA491F28FC49D157A3098045D356B user|pass</code> (Cấp key trực tiếp)",
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { product: true, stocks: true },
+  });
+
+  if (!order) {
+    await ctx.reply(`❌ Không tìm thấy đơn hàng có mã <code>${orderId}</code>!`, { parse_mode: "HTML" });
+    return;
+  }
+
+  const qty = Math.max(1, order.quantity || 1);
+  let keysToDeliver: string[] = [];
+
+  if (customKey) {
+    const enc = encryptStock(customKey);
+    await prisma.stockItem.create({
+      data: {
+        productId: order.productId,
+        data: enc,
+        isSold: true,
+        orderId: order.id,
+      },
+    });
+    keysToDeliver.push(customKey);
+  } else if (order.stocks && order.stocks.length >= qty) {
+    keysToDeliver = order.stocks.map((s) => decryptStock(s.data));
+  } else {
+    const currentCount = order.stocks?.length || 0;
+    const needed = qty - currentCount;
+    const availableStocks = await prisma.stockItem.findMany({
+      where: {
+        productId: order.productId,
+        isSold: false,
+        isFaulty: false,
+      },
+      take: needed,
+      orderBy: { id: "asc" },
+    });
+
+    if (availableStocks.length > 0) {
+      await prisma.$transaction(
+        availableStocks.map((s) =>
+          prisma.stockItem.update({
+            where: { id: s.id },
+            data: { isSold: true, orderId: order.id },
+          })
+        )
+      );
+      const decryptedNew = availableStocks.map((s) => decryptStock(s.data));
+      const existingDecrypted = (order.stocks || []).map((s) => decryptStock(s.data));
+      keysToDeliver = [...existingDecrypted, ...decryptedNew];
+    }
+
+    if (keysToDeliver.length < qty && order.product?.supplierVariantId) {
+      try {
+        const { fulfillFromSupplier } = await import("../lib/supplier-fulfillment");
+        const fRes = await fulfillFromSupplier(
+          order.product.supplierVariantId,
+          qty - keysToDeliver.length,
+          order.product?.price || 2_000_000
+        );
+        if (fRes.success && fRes.items.length > 0) {
+          for (const rawKey of fRes.items) {
+            await prisma.stockItem.create({
+              data: {
+                productId: order.productId,
+                data: encryptStock(rawKey),
+                isSold: true,
+                orderId: order.id,
+              },
+            });
+            keysToDeliver.push(rawKey);
+          }
+        }
+      } catch (e) {
+        console.error("Lỗi mua supplier:", e);
+      }
+    }
+  }
+
+  const finalStatus = keysToDeliver.length >= qty ? "PAID" : "PAID_PENDING_FULFILLMENT";
+  await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      status: finalStatus,
+      paidAt: new Date(),
+    },
+  });
+
+  if (order.telegramId) {
+    let customerMsg = "";
+    if (finalStatus === "PAID" && keysToDeliver.length > 0) {
+      customerMsg =
+        `🎉 <b>ĐƠN HÀNG ĐÃ ĐƯỢC DUYỆT THÀNH CÔNG!</b>\n\n` +
+        `Kính gửi Quý khách, đơn hàng <code>#${order.id}</code> của Quý khách đã được Admin kiểm tra và duyệt hoàn tất:\n\n` +
+        `📦 <b>Sản phẩm:</b> ${order.product?.name || "Sản phẩm"}\n` +
+        `🔢 <b>Số lượng:</b> ${qty}\n` +
+        `💰 <b>Số tiền:</b> ${order.totalAmount.toLocaleString("vi-VN")} đ\n\n` +
+        `🔑 <b>Tài nguyên bàn giao:</b>\n` +
+        `<code>${keysToDeliver.map((k, i) => `#${i + 1}: ${k}`).join("\n")}</code>\n\n` +
+        `<blockquote>💡 <i>Chạm vào mã để sao chép. Nếu cần hỗ trợ thêm, Quý khách vui lòng liên hệ Admin @rinq_hotro.</i></blockquote>`;
+    } else {
+      customerMsg =
+        `✅ <b>ĐƠN HÀNG ĐÃ ĐƯỢC DUYỆT THANH TOÁN!</b>\n\n` +
+        `Kính gửi Quý khách, đơn hàng <code>#${order.id}</code> (${order.product?.name || "Sản phẩm"}) đã được Admin duyệt thành công.\n\n` +
+        `⏳ Admin đang chuẩn bị tài nguyên và sẽ gửi cho bạn trong giây lát!\n\n` +
+        `Cảm ơn Quý khách đã mua sắm tại RINQ SHOP!`;
+    }
+
+    await bot.api.sendMessage(order.telegramId, customerMsg, {
+      parse_mode: "HTML",
+      reply_markup: new InlineKeyboard().url("💬 Hỗ trợ Admin (@rinq_hotro)", "https://t.me/rinq_hotro"),
+    }).catch(() => {});
+  }
+
+  await ctx.reply(
+    `✅ <b>ĐÃ DUYỆT ĐƠN #${order.id} THÀNH CÔNG!</b>\n\n` +
+    `• Khách hàng: <b>${order.username ? `@${order.username}` : order.telegramId}</b>\n` +
+    `• Sản phẩm: <b>${order.product?.name}</b> (x${qty})\n` +
+    `• Trạng thái: <b>${finalStatus === "PAID" ? "ĐÃ BÀN GIAO" : "CHỜ CẤP KEY"}</b>\n` +
+    (keysToDeliver.length > 0
+      ? `• Key cấp:\n<code>${keysToDeliver.join("\n")}</code>`
+      : `⚠️ Chưa có đủ key trong kho! Đơn chuyển sang "Cần cấp hàng".`),
+    { parse_mode: "HTML" }
+  );
+});
+
+// 18. Lệnh Admin: Cộng tiền ví (/congtien <id hoặc username> <số_tiền> [lý do])
+bot.command("congtien", async (ctx) => {
+  const adminId = String(ctx.from?.id);
+  if (adminId !== ADMIN_TELEGRAM_ID) {
+    await ctx.reply("⛔ Lệnh này chỉ dành riêng cho Admin @rinq_hotro!");
+    return;
+  }
+
+  const parts = (ctx.message?.text || "").trim().split(/\s+/);
+  const target = (parts[1] || "").replace(/^@/, "");
+  const amountStr = parts[2] || "";
+  const reason = parts.slice(3).join(" ");
+  const amount = parseInt(amountStr.replace(/\D/g, ""), 10);
+
+  if (!target || !amount || amount <= 0) {
+    await ctx.reply(
+      "📌 <b>CÚ PHÁP CỘNG TIỀN VÍ:</b>\n" +
+      "<code>/congtien &lt;telegram_id_hoặc_username&gt; &lt;số_tiền&gt; [lý_do]</code>\n\n" +
+      "<i>Ví dụ:</i>\n" +
+      "• <code>/congtien 123456789 20000 Hoàn tiền đơn lỗi</code>\n" +
+      "• <code>/congtien @username 50000 Thưởng giveaway</code>",
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  let user = await prisma.telegramUser.findFirst({
+    where: {
+      OR: [
+        { id: target },
+        { username: { equals: target, mode: "insensitive" } },
+      ],
+    },
+  });
+
+  if (!user && /^\d+$/.test(target)) {
+    user = await prisma.telegramUser.create({
+      data: { id: target, balance: 0 },
+    });
+  }
+
+  if (!user) {
+    await ctx.reply(`❌ Không tìm thấy người dùng có ID hoặc username là <code>${target}</code>!`, { parse_mode: "HTML" });
+    return;
+  }
+
+  const updatedUser = await prisma.telegramUser.update({
+    where: { id: user.id },
+    data: { balance: { increment: amount } },
+  });
+  await prisma.walletTransaction.create({
+    data: {
+      id: `ADJ${randomBytes(4).toString("hex").toUpperCase()}`,
+      telegramId: user.id,
+      amount: amount,
+      type: "ADMIN_ADJUST",
+      status: "SUCCESS",
+      description: reason || "Admin cộng tiền ví",
+    },
+  }).catch(() => {});
+
+  const notifyText =
+    `💰 <b>BIẾN ĐỘNG SỐ DƯ VÍ RINQ SHOP</b>\n\n` +
+    `➕ <b>+${amount.toLocaleString("vi-VN")} đ</b>\n` +
+    `• Lý do: <b>${reason || "Admin cộng tiền / Hoàn tiền đơn hàng"}</b>\n` +
+    `• Số dư ví hiện tại: <b>${(updatedUser.balance || 0).toLocaleString("vi-VN")} đ</b>\n\n` +
+    `<blockquote>💡 <i>Quý khách có thể sử dụng số dư này để thanh toán ngay cho mọi sản phẩm trên Bot!</i></blockquote>`;
+
+  await bot.api.sendMessage(user.id, notifyText, {
+    parse_mode: "HTML",
+    reply_markup: new InlineKeyboard()
+      .text("🛍 Mua hàng ngay", "menu_products")
+      .row()
+      .url("💬 Hỗ trợ Admin (@rinq_hotro)", "https://t.me/rinq_hotro"),
+  }).catch(() => {});
+
+  await ctx.reply(
+    `✅ <b>ĐÃ CỘNG TIỀN THÀNH CÔNG!</b>\n\n` +
+    `• Người nhận: <b>${user.username ? `@${user.username}` : user.id}</b>\n` +
+    `• Số tiền: <b>+${amount.toLocaleString("vi-VN")} đ</b>\n` +
+    `• Lý do: ${reason || "Không ghi"}\n` +
+    `• Số dư mới: <b>${(updatedUser.balance || 0).toLocaleString("vi-VN")} đ</b>`,
+    { parse_mode: "HTML" }
+  );
+});
+
+// 19. Lệnh Admin: Trừ tiền ví (/trutien <id hoặc username> <số_tiền> [lý do])
+bot.command("trutien", async (ctx) => {
+  const adminId = String(ctx.from?.id);
+  if (adminId !== ADMIN_TELEGRAM_ID) {
+    await ctx.reply("⛔ Lệnh này chỉ dành riêng cho Admin @rinq_hotro!");
+    return;
+  }
+
+  const parts = (ctx.message?.text || "").trim().split(/\s+/);
+  const target = (parts[1] || "").replace(/^@/, "");
+  const amountStr = parts[2] || "";
+  const reason = parts.slice(3).join(" ");
+  const amount = parseInt(amountStr.replace(/\D/g, ""), 10);
+
+  if (!target || !amount || amount <= 0) {
+    await ctx.reply(
+      "📌 <b>CÚ PHÁP TRỪ TIỀN VÍ:</b>\n" +
+      "<code>/trutien &lt;telegram_id_hoặc_username&gt; &lt;số_tiền&gt; [lý_do]</code>",
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  const user = await prisma.telegramUser.findFirst({
+    where: {
+      OR: [
+        { id: target },
+        { username: { equals: target, mode: "insensitive" } },
+      ],
+    },
+  });
+
+  if (!user) {
+    await ctx.reply(`❌ Không tìm thấy người dùng <code>${target}</code>!`, { parse_mode: "HTML" });
+    return;
+  }
+
+  const newBalance = Math.max(0, (user.balance || 0) - amount);
+  const updatedUser = await prisma.telegramUser.update({
+    where: { id: user.id },
+    data: { balance: newBalance },
+  });
+  await prisma.walletTransaction.create({
+    data: {
+      id: `ADJ${randomBytes(4).toString("hex").toUpperCase()}`,
+      telegramId: user.id,
+      amount: -amount,
+      type: "ADMIN_ADJUST",
+      status: "SUCCESS",
+      description: reason || "Admin trừ tiền ví",
+    },
+  }).catch(() => {});
+
+  await ctx.reply(
+    `✅ <b>ĐÃ TRỪ TIỀN VÍ THÀNH CÔNG!</b>\n\n` +
+    `• Khách: <b>${user.username ? `@${user.username}` : user.id}</b>\n` +
+    `• Đã trừ: <b>-${amount.toLocaleString("vi-VN")} đ</b>\n` +
+    `• Số dư mới: <b>${updatedUser.balance.toLocaleString("vi-VN")} đ</b>`,
+    { parse_mode: "HTML" }
+  );
+});
+
+// 20. Tính năng Ví RINQ SHOP & Nạp tiền tự động
+function parseMoneyInput(raw: string): number {
+  let s = (raw || "").trim().toLowerCase().replace(/[,.\sđvnd]/g, "");
+  if (s.endsWith("k")) {
+    s = s.slice(0, -1) + "000";
+  } else if (s.endsWith("m") || s.endsWith("tr")) {
+    s = s.replace(/(m|tr)$/, "") + "000000";
+  }
+  const num = parseInt(s, 10);
+  return Number.isSafeInteger(num) && num > 0 ? num : 0;
+}
+
+async function renderWallet(ctx: any, deletePrevious = false, editInPlace = false) {
+  if (deletePrevious) {
+    await ctx.deleteMessage().catch(() => {});
+  }
+
+  const telegramId = String(ctx.from?.id);
+  const user = await prisma.telegramUser.upsert({
+    where: { id: telegramId },
+    update: {
+      username: ctx.from?.username || undefined,
+      firstName: ctx.from?.first_name || undefined,
+    },
+    create: {
+      id: telegramId,
+      username: ctx.from?.username || null,
+      firstName: ctx.from?.first_name || null,
+      balance: 0,
+    },
+  });
+
+  const balance = user.balance || 0;
+
+  // Lấy các giao dịch gần đây (nạp, mua hàng, cộng tiền)
+  const recentTxs = await prisma.walletTransaction.findMany({
+    where: { telegramId, status: "SUCCESS" },
+    orderBy: { createdAt: "desc" },
+    take: 5,
+  });
+
+  let recentTransactionsText = "Chưa có giao dịch ví.\n";
+  if (recentTxs.length > 0) {
+    recentTransactionsText = recentTxs
+      .map((t) => {
+        const sign = t.amount >= 0 ? "+" : "";
+        const icon = t.amount >= 0 ? "➕" : "➖";
+        const time = new Date(t.createdAt).toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          day: "2-digit",
+          month: "2-digit",
+          timeZone: "Asia/Ho_Chi_Minh",
+        });
+        return `${icon} <b>${sign}${t.amount.toLocaleString("vi-VN")}đ</b> · ${t.description || (t.amount >= 0 ? "Nạp tiền ví" : "Thanh toán")} <i>(${time})</i>`;
+      })
+      .join("\n") + "\n";
+  }
+
+  const walletText =
+    `💳 <b>VÍ RINQ SHOP CỦA BẠN</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `👤 Chủ ví: <b>${ctx.from?.first_name || "Quý khách"}</b>\n` +
+    `🆔 Mã định danh: <code>${telegramId}</code>\n` +
+    `💰 <b>Số dư ví:</b> <b>${formatVND(balance)}</b>\n\n` +
+    `<b>Giao dịch gần đây</b>\n` +
+    `${recentTransactionsText}\n` +
+    `Nạp nhanh bằng nút bên dưới hoặc gửi /nap 100000. Nạp ví không tự thanh toán đơn đang chờ.`;
+
+  const walletKeyboard = new InlineKeyboard()
+    .text("Nạp 50.000đ", "nap:50000")
+    .text("Nạp 100.000đ", "nap:100000")
+    .row()
+    .text("Nạp 200.000đ", "nap:200000")
+    .text("Nhập số tiền khác", "nap_custom")
+    .row()
+    .text("⚡ Làm mới số dư", "refresh_wallet")
+    .row()
+    .text("🏧 Mua hàng", "menu_products");
+
+  if (editInPlace && ctx.callbackQuery?.message) {
+    try {
+      await ctx.editMessageText(walletText, {
+        parse_mode: "HTML",
+        reply_markup: walletKeyboard,
+      });
+      return;
+    } catch {}
+  }
+
+  await ctx.reply(walletText, {
+    parse_mode: "HTML",
+    reply_markup: walletKeyboard,
+  });
+}
+
+async function handleDepositRequest(ctx: any, amount: number) {
+  if (amount < 10000) {
+    await ctx.reply("⚠️ Số tiền nạp tối thiểu là <b>10.000 đ</b>. Quý khách vui lòng thử lại!", { parse_mode: "HTML" });
+    return;
+  }
+  if (amount > 50000000) {
+    await ctx.reply("⚠️ Số tiền nạp tối đa mỗi lần là <b>50.000.000 đ</b>.", { parse_mode: "HTML" });
+    return;
+  }
+
+  const telegramId = String(ctx.from?.id);
+  const depositId = `NAP${randomBytes(4).toString("hex").toUpperCase()}`;
+
+  await prisma.telegramUser.upsert({
+    where: { id: telegramId },
+    update: {
+      username: ctx.from?.username || undefined,
+      firstName: ctx.from?.first_name || undefined,
+    },
+    create: {
+      id: telegramId,
+      username: ctx.from?.username || null,
+      firstName: ctx.from?.first_name || null,
+      balance: 0,
+    },
+  });
+
+  await prisma.walletTransaction.create({
+    data: {
+      id: depositId,
+      telegramId,
+      amount,
+      type: "DEPOSIT",
+      status: "PENDING",
+      description: `Nạp tiền ví ${formatVND(amount)}`,
+    },
+  });
+
+  const qrBuffer = await fetchQRCodeBuffer(
+    BANK_ID,
+    BANK_ACCOUNT_NO,
+    amount,
+    depositId,
+    BANK_ACCOUNT_NAME
+  );
+
+  const depositText =
+    `🧾 <b>HÓA ĐƠN NẠP TIỀN VÍ:</b> <code>${depositId}</code>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `• <b>Khách hàng:</b> <b>${ctx.from?.first_name || "Quý khách"}</b> (<code>${telegramId}</code>)\n` +
+    `• <b>Số tiền nạp:</b> <b>${formatVND(amount)}</b>\n` +
+    `• <b>Ưu đãi / Phí:</b> <b>Miễn phí (0đ)</b>\n` +
+    `• <b>Thực nhận vào ví:</b> <b>${formatVND(amount)}</b>\n\n` +
+    `🏦 <b>THÔNG TIN CHUYỂN KHOẢN TỰ ĐỘNG:</b>\n` +
+    `• Ngân hàng: <b>${BANK_ID}</b>\n` +
+    `• Số tài khoản: <code>${BANK_ACCOUNT_NO}</code>\n` +
+    `• Chủ tài khoản: <b>${BANK_ACCOUNT_NAME}</b>\n` +
+    `• Số tiền: <code>${amount}</code>\n` +
+    `• Nội dung chuyển khoản: <code>${depositId}</code>\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
+    `1. Quý khách quét mã <b>VietQR</b> phía trên hoặc chuyển khoản theo thông tin trên (chạm vào dòng STK hoặc Nội dung để tự động sao chép).\n` +
+    `2. Xin vui lòng giữ <b>NGUYÊN</b> nội dung chuyển khoản là <code>${depositId}</code> để hệ thống tự động cộng tiền.\n` +
+    `3. <i>Nạp ví không tự thanh toán đơn đang chờ.</i>\n\n` +
+    `<i>Sau khi nhận thanh toán, hệ thống sẽ tự động cộng số dư vào ví trong 3 - 5 giây!</i>`;
+
+  const depositKeyboard = new InlineKeyboard()
+    .text("⚡ Kiểm tra giao dịch", `check_deposit:${depositId}`)
+    .row()
+    .text("❌ Hủy giao dịch này", `cancel_deposit:${depositId}`)
+    .row()
+    .text("🔙 Quay lại ví", "menu_wallet");
+
+  if (ctx.callbackQuery?.message) {
+    await ctx.deleteMessage().catch(() => {});
+  }
+
+  let sentQrMsg: any = null;
+  if (qrBuffer) {
+    try {
+      sentQrMsg = await ctx.replyWithPhoto(new InputFile(qrBuffer, `vietqr_${depositId}.png`), {
+        caption: depositText,
+        parse_mode: "HTML",
+        reply_markup: depositKeyboard,
+      });
+    } catch {}
+  }
+
+  if (!sentQrMsg) {
+    sentQrMsg = await ctx.reply(depositText, {
+      parse_mode: "HTML",
+      reply_markup: depositKeyboard,
+    });
+  }
+
+  if (sentQrMsg?.message_id) {
+    await prisma.walletTransaction.update({
+      where: { id: depositId },
+      data: { qrMessageId: sentQrMsg.message_id },
+    }).catch(() => {});
+  }
+}
+
+// Callbacks nạp tiền ví
+bot.callbackQuery(/^nap:(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  const amount = parseInt(ctx.match[1], 10);
+  await handleDepositRequest(ctx, amount);
+});
+
+bot.callbackQuery("nap_custom", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  await ctx.reply(
+    `💰 <b>HƯỚNG DẪN NẠP TIỀN TÙY CHỌN:</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `Quý khách vui lòng gửi lệnh theo cú pháp:\n` +
+    `👉 <code>/nap &lt;số_tiền&gt;</code>\n\n` +
+    `<b>Ví dụ:</b>\n` +
+    `• <code>/nap 30000</code> <i>(Nạp 30.000đ)</i>\n` +
+    `• <code>/nap 150000</code> hoặc <code>/nap 150k</code> <i>(Nạp 150.000đ)</i>\n` +
+    `• <code>/nap 500k</code> <i>(Nạp 500.000đ)</i>\n\n` +
+    `<i>Lưu ý: Hạn mức nạp tối thiểu là 10.000đ.</i>`,
+    { parse_mode: "HTML" }
+  );
+});
+
+bot.callbackQuery("refresh_wallet", async (ctx) => {
+  await ctx.answerCallbackQuery({ text: "⚡ Đã cập nhật số dư ví!" }).catch(() => {});
+  await renderWallet(ctx, false, true);
+});
+
+bot.callbackQuery("menu_wallet", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  await renderWallet(ctx, true);
+});
+
+bot.callbackQuery(/^check_deposit:(.+)$/, async (ctx) => {
+  const depositId = ctx.match[1];
+  const tx = await prisma.walletTransaction.findUnique({ where: { id: depositId } });
+  if (!tx) {
+    await ctx.answerCallbackQuery({ text: "❌ Không tìm thấy giao dịch!" });
+    return;
+  }
+  if (tx.status === "SUCCESS") {
+    await ctx.answerCallbackQuery({ text: "🎉 Nạp tiền ví thành công!" });
+    await ctx.deleteMessage().catch(() => {});
+    await renderWallet(ctx);
+    return;
+  }
+  if (tx.status === "CANCELLED") {
+    await ctx.answerCallbackQuery({ text: "⚠️ Giao dịch này đã bị hủy." });
+    return;
+  }
+  await ctx.answerCallbackQuery({
+    text: "⏳ Hệ thống đang chờ tiền vào... Vui lòng kiểm tra lại sau ít giây!",
+    show_alert: true,
+  });
+});
+
+bot.callbackQuery(/^cancel_deposit:(.+)$/, async (ctx) => {
+  const depositId = ctx.match[1];
+  await prisma.walletTransaction.updateMany({
+    where: { id: depositId, status: "PENDING" },
+    data: { status: "CANCELLED" },
+  });
+  await ctx.answerCallbackQuery({ text: "Đã hủy giao dịch nạp tiền." });
+  await ctx.deleteMessage().catch(() => {});
+  await renderWallet(ctx);
+});
+
+// Lệnh ví & nạp tiền
+bot.command(["vi", "taikhoan", "me", "wallet"], async (ctx) => {
+  await renderWallet(ctx);
+});
+
+bot.command("nap", async (ctx) => {
+  const rawArg = ctx.match?.trim() || "";
+  if (!rawArg) {
+    await renderWallet(ctx);
+    return;
+  }
+  const amount = parseMoneyInput(rawArg);
+  if (amount <= 0) {
+    await ctx.reply(
+      `⚠️ Số tiền không hợp lệ! Vui lòng gửi lệnh như: <code>/nap 100000</code> hoặc <code>/nap 50k</code>.`,
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+  await handleDepositRequest(ctx, amount);
+});
+
+bot.hears(["💳 Ví của tôi", "Ví của tôi", "💳 Ví & Số dư", "Ví & Số dư", "Số dư ví", "Ví", "Nạp tiền"], async (ctx) => {
+  await renderWallet(ctx);
+});
+
+// Lệnh dành riêng cho Admin: Tự động đồng bộ và chốt giá mới từ nhà cung cấp
+bot.command(["syncprice", "capnhatgia"], async (ctx) => {
+  const senderId = String(ctx.from?.id || "");
+  if (senderId !== ADMIN_TELEGRAM_ID.trim()) {
+    await ctx.reply("⛔ Lệnh này chỉ dành cho Quản trị viên.");
+    return;
+  }
+  const waitMsg = await ctx.reply("⏳ Đang quét danh mục và đồng bộ giá từ nhà cung cấp RoboticVN...");
+  try {
+    const res = await syncRoboticPrices({ notifyAdmin: true, broadcastCustomersOnDiscount: true });
+    await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(() => {});
+    if (!res.success) {
+      await ctx.reply(`❌ Lỗi đồng bộ giá: ${res.error || "Không xác định"}`);
+      return;
+    }
+    await ctx.reply(
+      `✅ <b>ĐỒNG BỘ & CHỐT GIÁ THÀNH CÔNG!</b>\n\n` +
+      `• Tổng sản phẩm kiểm tra: <b>${res.totalChecked}</b>\n` +
+      `• Số sản phẩm có biến động giá: <b>${res.updatedCount}</b>\n\n` +
+      (res.updatedCount === 0
+        ? `<i>Giá tất cả sản phẩm đều đang khớp với nhà cung cấp.</i>`
+        : `<i>Đã tự động chốt lại giá bán lẻ và cập nhật toàn bộ hệ thống.</i>`),
+      { parse_mode: "HTML" }
+    );
+  } catch (err: any) {
+    await ctx.reply(`❌ Lỗi: ${err.message || err}`);
+  }
+});
+
 // Bắt lỗi toàn cục
 bot.catch((err) => {
   console.error("❌ Lỗi Telegram Bot:", err.message || err);
@@ -1312,9 +2089,11 @@ async function registerBotCommands() {
       { command: "start", description: "🛍️ Mở cửa hàng RINQ SHOP" },
       { command: "menu", description: "🛒 Danh mục sản phẩm & tồn kho" },
       { command: "orders", description: "📦 Lịch sử đơn hàng của tôi" },
+      { command: "vi", description: "💳 Xem ví & số dư" },
+      { command: "nap", description: "💰 Nạp tiền vào ví" },
       { command: "giveaway", description: "🎁 Sự kiện Giveaway tri ân" },
       { command: "help", description: "❓ Quy trình hướng dẫn mua hàng" },
-      { command: "support", description: "💬 Hỗ trợ trực tuyến (@zophim)" },
+      { command: "support", description: "💬 Hỗ trợ trực tuyến (@rinq_hotro)" },
     ]);
     console.log("✅ Đã cài đặt Menu lệnh sẵn (setMyCommands) thành công!");
   } catch (err: any) {
@@ -1326,10 +2105,12 @@ async function registerBotCommands() {
 console.log("🚀 Đang khởi động Telegram Bot...");
 
 let heartbeatTimer: NodeJS.Timeout | null = null;
+let priceSyncTimer: NodeJS.Timeout | null = null;
 
 async function cleanupAndExit() {
   console.log("\n🛑 Đang dừng Bot...");
   if (heartbeatTimer) clearInterval(heartbeatTimer);
+  if (priceSyncTimer) clearInterval(priceSyncTimer);
   await stopBotHeartbeat().catch(() => {});
   process.exit(0);
 }
@@ -1345,6 +2126,15 @@ bot.start({
     await recordBotHeartbeat().catch(() => {});
     heartbeatTimer = setInterval(() => {
       recordBotHeartbeat().catch(() => {});
-    }, 5000);
+    }, 30000);
+
+    // Tự động quét và chốt giá mới từ nhà cung cấp RoboticVN mỗi 30 phút
+    priceSyncTimer = setInterval(async () => {
+      try {
+        await syncRoboticPrices({ notifyAdmin: true, broadcastCustomersOnDiscount: true });
+      } catch (err) {
+        console.error("Lỗi quét giá định kỳ:", err);
+      }
+    }, 30 * 60 * 1000);
   },
 });

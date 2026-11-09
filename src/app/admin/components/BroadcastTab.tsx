@@ -1,102 +1,40 @@
 "use client";
 
 import React from "react";
-import { Package, Send, Bell } from "lucide-react";
+import { Package, Send, Bell, Image as ImageIcon, Link2 } from "lucide-react";
 import { Product, Stats } from "../types";
 
 interface BroadcastTabProps {
   products: Product[];
   stats: Stats;
+  broadcastTitle: string;
+  setBroadcastTitle: (value: string) => void;
   customBroadcastMsg: string;
-  setCustomBroadcastMsg: (val: string) => void;
+  setCustomBroadcastMsg: (value: string) => void;
+  broadcastImageUrl: string;
+  setBroadcastImageUrl: (value: string) => void;
+  broadcastButtonText: string;
+  setBroadcastButtonText: (value: string) => void;
+  broadcastButtonUrl: string;
+  setBroadcastButtonUrl: (value: string) => void;
   isBroadcasting: boolean;
   onNotifyProduct: (id: number, name: string) => void;
-  onCustomBroadcast: (e: React.FormEvent) => void;
+  onCustomBroadcast: (event: React.FormEvent) => void;
 }
 
-export default function BroadcastTab({
-  products,
-  stats,
-  customBroadcastMsg,
-  setCustomBroadcastMsg,
-  isBroadcasting,
-  onNotifyProduct,
-  onCustomBroadcast,
-}: BroadcastTabProps) {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
-      {/* Box 1: Bắn thông báo hàng về theo sản phẩm (7 cols) */}
-      <div className="lg:col-span-7 bg-white rounded-[28px] border border-slate-200 p-5 sm:p-6 shadow-sm transition-all hover:shadow-md hover:border-slate-300">
-        <div className="mb-4">
-          <h3 className="font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
-            <Package className="h-5 w-5 text-[#0e704b]" />
-            <span>Bắn thông báo hàng về (Restock Alert)</span>
-          </h3>
-          <p className="text-xs text-slate-600 font-medium mt-1">
-            Bấm nút bắn thông báo bên cạnh sản phẩm để gửi tin kèm nút "Mua ngay" cho toàn bộ <b>{stats.subscriberCount ?? 0}</b> khách hàng
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          {products.map((p) => (
-            <div
-              key={p.id}
-              className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-100 bg-slate-50/60 hover:bg-slate-50 transition"
-            >
-              <div>
-                <div className="font-bold text-xs sm:text-sm text-slate-900">{p.name}</div>
-                <div className="text-[11px] text-slate-600 font-medium mt-0.5">
-                  Tồn kho: <b className="text-[#0e704b]">{p.stockAvailable}</b> · Giá: {p.price.toLocaleString("vi-VN")} đ
-                </div>
-              </div>
-
-              <button
-                onClick={() => onNotifyProduct(p.id, p.name)}
-                className="flex items-center gap-1.5 rounded-full bg-pink-600 hover:bg-pink-700 text-white px-3.5 py-1.5 text-xs font-bold transition shadow-sm active:scale-95"
-              >
-                <Send className="h-3 w-3" />
-                <span>Bắn thông báo</span>
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Box 2: Bắn tin nhắn tùy chỉnh (5 cols) */}
-      <div className="lg:col-span-5 bg-white rounded-[28px] border border-slate-200 p-5 sm:p-6 shadow-sm transition-all hover:shadow-md hover:border-slate-300">
-        <h3 className="font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2 mb-2">
-          <Bell className="h-5 w-5 text-pink-600" />
-          <span>Bắn tin nhắn tùy chỉnh</span>
-        </h3>
-        <p className="text-xs text-slate-600 font-medium mb-3">
-          Gửi thông báo bảo trì, tri ân, khuyến mãi bất kỳ vào Telegram của từng khách.
-        </p>
-
-        <form onSubmit={onCustomBroadcast} className="space-y-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              Nội dung thông báo * (Hỗ trợ HTML: &lt;b&gt;, &lt;i&gt;, &lt;code&gt;)
-            </label>
-            <textarea
-              rows={5}
-              placeholder={`🔥 SHOP BẢO TRÌ NÂNG CẤP HỆ THỐNG...\n\nXin chào quý khách, shop sẽ tạm bảo trì trong 15 phút.`}
-              value={customBroadcastMsg}
-              onChange={(e) => setCustomBroadcastMsg(e.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-900 focus:outline-none focus:border-pink-600"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isBroadcasting}
-            className="w-full rounded-full bg-pink-600 hover:bg-pink-700 text-white py-2.5 text-xs font-bold transition shadow-md shadow-pink-600/20 disabled:opacity-50 active:scale-95"
-          >
-            {isBroadcasting ? "Đang gửi..." : `Bắn tới ${stats.subscriberCount ?? 0} khách hàng ngay`}
-          </button>
-        </form>
-      </div>
+export default function BroadcastTab(props: BroadcastTabProps) {
+  const { products, stats, broadcastTitle, setBroadcastTitle, customBroadcastMsg, setCustomBroadcastMsg, broadcastImageUrl, setBroadcastImageUrl, broadcastButtonText, setBroadcastButtonText, broadcastButtonUrl, setBroadcastButtonUrl, isBroadcasting, onNotifyProduct, onCustomBroadcast } = props;
+  return <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 sm:gap-6">
+    <div className="xl:col-span-5 bg-white rounded-[28px] border border-slate-200 p-5 sm:p-6 shadow-sm">
+      <div className="mb-4"><h3 className="font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2"><Package className="h-5 w-5 text-[#0e704b]" /> Hàng về cần thông báo</h3><p className="text-xs text-slate-600 font-medium mt-1">Gửi mẫu restock có nút mua tới <b>{stats.subscriberCount ?? 0}</b> người theo dõi.</p></div>
+      <div className="space-y-3 max-h-[620px] overflow-y-auto pr-1">{products.map((product) => <div key={product.id} className="flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-slate-100 bg-slate-50/60"><div className="min-w-0"><div className="font-bold text-xs sm:text-sm text-slate-900 truncate">{product.name}</div><div className="text-[11px] text-slate-600 font-medium mt-0.5">Tồn kho: <b className="text-[#0e704b]">{product.stockAvailable}</b> · Giá: {product.price.toLocaleString("vi-VN")} đ</div></div><button onClick={() => onNotifyProduct(product.id, product.name)} className="shrink-0 flex items-center gap-1.5 rounded-full bg-pink-600 hover:bg-pink-700 text-white px-3.5 py-1.5 text-xs font-bold transition"><Send className="h-3 w-3" /> Bắn restock</button></div>)}</div>
     </div>
-  );
+    <div className="xl:col-span-7 bg-white rounded-[28px] border border-slate-200 p-5 sm:p-6 shadow-sm">
+      <div className="mb-4"><h3 className="font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2"><Bell className="h-5 w-5 text-pink-600" /> Chiến dịch thông báo / quảng cáo</h3><p className="text-xs text-slate-600 font-medium mt-1">Dùng cho giới thiệu tính năng, khuyến mãi, bảo trì hoặc tin chăm sóc khách hàng.</p></div>
+      <form onSubmit={onCustomBroadcast} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-3"><div><label className="block text-xs font-semibold text-slate-600 mb-1">Tiêu đề</label><input value={broadcastTitle} onChange={(event) => setBroadcastTitle(event.target.value)} maxLength={120} placeholder="Ví dụ: Tính năng mới đã có mặt" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-pink-600" /></div><div><label className="block text-xs font-semibold text-slate-600 mb-1">Nội dung * · hỗ trợ HTML Telegram</label><textarea rows={8} value={customBroadcastMsg} onChange={(event) => setCustomBroadcastMsg(event.target.value)} placeholder={`🔥 Ưu đãi mới từ RINQ SHOP\n\nXin chào quý khách...`} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-900 focus:outline-none focus:border-pink-600" required /></div></div>
+        <div className="space-y-3"><div><label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 mb-1"><ImageIcon className="h-3.5 w-3.5" /> Ảnh minh họa (URL HTTPS)</label><input type="url" value={broadcastImageUrl} onChange={(event) => setBroadcastImageUrl(event.target.value)} placeholder="https://.../banner.jpg" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-pink-600" /></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label className="block text-xs font-semibold text-slate-600 mb-1">Nhãn nút CTA</label><input value={broadcastButtonText} onChange={(event) => setBroadcastButtonText(event.target.value)} maxLength={64} placeholder="Xem chi tiết" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-pink-600" /></div><div><label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 mb-1"><Link2 className="h-3.5 w-3.5" /> Link CTA</label><input type="url" value={broadcastButtonUrl} onChange={(event) => setBroadcastButtonUrl(event.target.value)} placeholder="https://..." className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-pink-600" /></div></div><div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-xs text-slate-600"><div className="font-bold text-slate-800 mb-2">Xem nhanh</div><div className="whitespace-pre-wrap">{broadcastTitle || "📢 RINQ SHOP"}{"\n\n"}{customBroadcastMsg || "Nội dung quảng cáo sẽ hiển thị ở đây."}</div>{broadcastButtonText && <div className="mt-3 inline-flex rounded-lg bg-pink-600 px-3 py-1.5 font-bold text-white">{broadcastButtonText}</div>}</div><button type="submit" disabled={isBroadcasting} className="w-full rounded-full bg-pink-600 hover:bg-pink-700 text-white py-3 text-xs font-bold transition disabled:opacity-50">{isBroadcasting ? "Đang gửi chiến dịch…" : `Gửi tới ${stats.subscriberCount ?? 0} khách hàng`}</button></div>
+      </form>
+    </div>
+  </div>;
 }
-

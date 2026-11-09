@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createSupplierOrder, getSupplierDelivery } from "@/lib/supplier";
+import { fulfillFromSupplier } from "@/lib/supplier-fulfillment";
 import { encryptStock, decryptStock } from "@/lib/crypto";
 import { timingSafeEqual } from "crypto";
 import { COOKIE_NAME, isValidAdminSession } from "@/lib/admin-session";
+import { isSupportedOrderId } from "@/lib/order-policy";
 
 export async function GET() {
   return NextResponse.json({
@@ -14,20 +15,37 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  let claimedOrderId: string | null = null;
   try {
     const configuredApiKey = process.env.SEPAY_API_KEY || "";
     const suppliedAuthorization = req.headers.get("authorization") || "";
-    const suppliedApiKey = suppliedAuthorization.match(/^Apikey\s+(.+)$/i)?.[1] || "";
+    const suppliedApiKey =
+      suppliedAuthorization.match(/^(?:Apikey|Bearer)\s+(.+)$/i)?.[1] ||
+      suppliedAuthorization.trim() ||
+      req.headers.get("x-api-key") ||
+      req.headers.get("sepay-api-key") ||
+      "";
+
+    const apiKeyMatches =
+      Boolean(configuredApiKey) &&
+      Boolean(suppliedApiKey) &&
+      (configuredApiKey === suppliedApiKey || (() => {
+        try {
+          const expected = Buffer.from(configuredApiKey);
+          const supplied = Buffer.from(suppliedApiKey);
+          return expected.length === supplied.length && timingSafeEqual(expected, supplied);
+        } catch {
+          return false;
+        }
+      })());
+
     const adminSession =
+      process.env.NODE_ENV !== "production" &&
       req.headers.get("origin") === req.nextUrl.origin &&
       (await isValidAdminSession(req.cookies.get(COOKIE_NAME)?.value));
-    const apiKeyMatches = Boolean(configuredApiKey) && (() => {
-      const expected = Buffer.from(configuredApiKey);
-      const supplied = Buffer.from(suppliedApiKey);
-      return expected.length === supplied.length && timingSafeEqual(expected, supplied);
-    })();
 
-    if (!adminSession && !apiKeyMatches) {
+    if (!adminSession && (!configuredApiKey || !apiKeyMatches)) {
+      console.warn("SePay Webhook rejected: invalid or missing authentication.");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -42,13 +60,6 @@ export async function POST(req: NextRequest) {
 
     const transferAmount = Number(body.transferAmount ?? body.amount);
 
-    const match = String(rawContent).match(/DH(?:\d{6,12}|[A-F0-9]{32})/i);
-    const orderId = match ? match[0].toUpperCase() : (body.orderId ? String(body.orderId).toUpperCase() : null);
-
-    if (!orderId) {
-      return NextResponse.json({ error: "Không tìm thấy mã đơn trong giao dịch" }, { status: 400 });
-    }
-
     if (!Number.isSafeInteger(transferAmount) || transferAmount <= 0) {
       return NextResponse.json({ error: "Thiếu hoặc sai số tiền giao dịch" }, { status: 400 });
     }
@@ -57,21 +68,176 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Chỉ chấp nhận giao dịch tiền vào" }, { status: 400 });
     }
 
-    // Tìm đơn hàng trong DB
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: {
-        product: true,
-      },
+    // 1. Payment matching must use the full, unambiguous order ID.
+    const match = String(rawContent).match(/DH(?:[A-F0-9]{32}|[A-F0-9]{12}|[A-F0-9]{8})(?![A-F0-9])/i);
+    const orderIdCandidate = match && isSupportedOrderId(match[0]) ? match[0].toUpperCase() : null;
+
+    // 2. Deposit matching for wallet top-up (NAP...)
+    const napMatch = String(rawContent).match(/NAP(?:[A-F0-9]{8}|[A-F0-9]{12}|[0-9]{5,15})(?![A-F0-9])/i);
+    const napCandidate = napMatch ? napMatch[0].toUpperCase() : null;
+
+    // Xử lý nạp tiền vào ví
+    if (napCandidate && !orderIdCandidate) {
+      let tx = await prisma.walletTransaction.findUnique({
+        where: { id: napCandidate },
+      });
+
+      let targetTelegramId = tx?.telegramId || null;
+
+      if (!tx) {
+        const possibleTgId = napCandidate.replace(/^NAP/, "");
+        const user = await prisma.telegramUser.findUnique({
+          where: { id: possibleTgId },
+        });
+        if (user) {
+          targetTelegramId = user.id;
+          tx = await prisma.walletTransaction.create({
+            data: {
+              id: napCandidate,
+              telegramId: user.id,
+              amount: transferAmount,
+              type: "DEPOSIT",
+              status: "PENDING",
+              description: "Nạp tiền ví SePay tự động",
+            },
+          });
+        }
+      }
+
+      if (!tx || !targetTelegramId) {
+        return NextResponse.json({
+          success: true,
+          message: `Bỏ qua giao dịch: Không tìm thấy mã nạp ví ${napCandidate}`,
+          napId: napCandidate,
+        });
+      }
+
+      if (tx.status === "SUCCESS") {
+        return NextResponse.json({
+          success: true,
+          message: `Giao dịch nạp ví ${tx.id} đã hoàn tất trước đó.`,
+          napId: tx.id,
+        });
+      }
+
+      // Cập nhật trạng thái giao dịch & cộng số dư ví
+      const updatedUser = await prisma.$transaction(async (prismaTx) => {
+        await prismaTx.walletTransaction.update({
+          where: { id: tx!.id },
+          data: {
+            status: "SUCCESS",
+            amount: transferAmount,
+          },
+        });
+
+        return await prismaTx.telegramUser.upsert({
+          where: { id: targetTelegramId! },
+          update: {
+            balance: { increment: transferAmount },
+          },
+          create: {
+            id: targetTelegramId!,
+            balance: transferAmount,
+          },
+        });
+      });
+
+      const botToken = process.env.BOT_TOKEN;
+
+      // Xóa tin nhắn QR nạp tiền nếu có
+      if (botToken && tx.qrMessageId) {
+        try {
+          await fetch(`https://api.telegram.org/bot${botToken}/deleteMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: targetTelegramId,
+              message_id: tx.qrMessageId,
+            }),
+          });
+        } catch {}
+      }
+
+      // Thông báo cho khách hàng qua Telegram
+      if (botToken) {
+        const notifyMsg =
+          `🎉 <b>NẠP TIỀN VÀO VÍ THÀNH CÔNG!</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `Kính gửi Quý khách, hệ thống đã ghi nhận khoản nạp tiền vào ví:\n\n` +
+          `➕ <b>Số tiền nạp:</b> <b>+${transferAmount.toLocaleString("vi-VN")} đ</b>\n` +
+          `💳 <b>Số dư ví hiện tại:</b> <b>${(updatedUser.balance || 0).toLocaleString("vi-VN")} đ</b>\n` +
+          `🧾 <b>Mã giao dịch:</b> <code>${tx.id}</code>\n` +
+          `🕒 <b>Thời gian:</b> ${new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}\n\n` +
+          `<blockquote>💡 <i>Quý khách có thể sử dụng số dư ví này để thanh toán ngay cho mọi sản phẩm trên Bot!</i></blockquote>`;
+
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "🛒 Mua hàng ngay", callback_data: "menu_products" },
+              { text: "💳 Xem ví của tôi", callback_data: "menu_wallet" },
+            ],
+            [
+              { text: "💬 Hỗ trợ Admin (@rinq_hotro)", url: "https://t.me/rinq_hotro" },
+            ],
+          ],
+        };
+
+        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: targetTelegramId,
+            text: notifyMsg,
+            parse_mode: "HTML",
+            reply_markup: keyboard,
+          }),
+        }).catch(() => {});
+
+        // Báo cho Admin
+        const adminId = process.env.ADMIN_TELEGRAM_ID;
+        if (adminId && adminId !== targetTelegramId) {
+          fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: adminId,
+              text:
+                `💰 <b>KHÁCH NẠP TIỀN VÍ THÀNH CÔNG</b>\n` +
+                `• Khách: <code>${targetTelegramId}</code>\n` +
+                `• Số tiền: <b>+${transferAmount.toLocaleString("vi-VN")} đ</b>\n` +
+                `• Số dư mới: <b>${(updatedUser.balance || 0).toLocaleString("vi-VN")} đ</b>\n` +
+                `• Mã GD: <code>${tx.id}</code>`,
+              parse_mode: "HTML",
+            }),
+          }).catch(() => {});
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã nạp ${transferAmount}đ vào ví cho tài khoản ${targetTelegramId}`,
+        napId: tx.id,
+      });
+    }
+
+    if (!orderIdCandidate) {
+      return NextResponse.json({ error: "Thiếu mã đơn hàng (DH...) hoặc mã nạp tiền (NAP...) trong nội dung giao dịch" }, { status: 400 });
+    }
+
+    const order: any = await prisma.order.findUnique({
+      where: { id: orderIdCandidate },
+      include: { product: true },
     });
 
     if (!order) {
       return NextResponse.json({
         success: true,
-        message: `Bỏ qua giao dịch: Không tìm thấy đơn hàng mã ${orderId}`,
-        orderId,
+        message: `Bỏ qua giao dịch: Không tìm thấy đơn hàng mã ${orderIdCandidate || "N/A"}`,
+        orderId: orderIdCandidate,
       });
     }
+
+    const orderId = order.id;
 
     if (order.status === "PAID") {
       return NextResponse.json({
@@ -81,7 +247,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (transferAmount < order.totalAmount) {
+    if (order.status !== "PENDING") {
+      if (order.status === "PROCESSING" || order.status === "PAID_PENDING_FULFILLMENT") {
+        return NextResponse.json({ success: true, message: `Đơn ${order.id} đã nhận thanh toán và đang được xử lý.` });
+      }
+      return NextResponse.json({ error: `Đơn hàng không ở trạng thái chờ thanh toán (${order.status})` }, { status: 409 });
+    }
+
+    if (transferAmount !== order.totalAmount) {
       return NextResponse.json(
         {
           error: `Số tiền chuyển (${transferAmount}đ) không đủ so với giá trị đơn hàng (${order.totalAmount}đ)`,
@@ -90,42 +263,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Atomically claim the order. Duplicate or concurrent webhook deliveries cannot fulfill twice.
+    const claimed = await prisma.order.updateMany({
+      where: { id: order.id, status: "PENDING" },
+      data: { status: "PROCESSING" },
+    });
+    if (claimed.count !== 1) {
+      return NextResponse.json({ success: true, message: `Đơn ${order.id} đang được xử lý hoặc đã xử lý.` });
+    }
+    claimedOrderId = order.id;
+
     // Lấy số lượng đặt mua thực tế và mã tin nhắn QR từ DB
-    let orderQty = 1;
-    let qrMessageId: number | null = null;
-    try {
-      const qRows = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT quantity, qrMessageId FROM "Order" WHERE id = ?`,
-        orderId
-      );
-      if (qRows && qRows.length > 0) {
-        if (qRows[0].quantity) orderQty = Number(qRows[0].quantity);
-        if (qRows[0].qrMessageId) qrMessageId = Number(qRows[0].qrMessageId);
-      }
-    } catch {
-      orderQty = (order as any).quantity || 1;
-    }
+    const orderQty = order.quantity || 1;
+    const qrMessageId = order.qrMessageId || null;
 
-    // Lấy thông tin cấu hình mở rộng của sản phẩm (supplierVariantId, fulfillmentType)
-    let productExt: any = null;
-    try {
-      const pRows = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT supplierVariantId, fulfillmentType FROM "Product" WHERE id = ?`,
-        order.productId
-      );
-      if (pRows && pRows.length > 0) {
-        productExt = pRows[0];
-      }
-    } catch (e) {
-      console.warn("Không thể tải cấu hình NCC của sản phẩm:", e);
-    }
-
-    const supplierVariantId =
-      productExt?.supplierVariantId || (order.product as any)?.supplierVariantId;
-    const fulfillmentType =
-      productExt?.fulfillmentType ||
-      (order.product as any)?.fulfillmentType ||
-      "HYBRID";
+    const supplierVariantId = order.product?.supplierVariantId || null;
+    const fulfillmentType = order.product?.fulfillmentType || "HYBRID";
 
     // Tìm tài nguyên còn tồn trong kho nội bộ
     const availableStocks = await prisma.stockItem.findMany({
@@ -167,21 +320,16 @@ export async function POST(req: NextRequest) {
           throw new Error("OUT_OF_STOCK");
         }
       } else {
-        // Tự động gọi API NCC Likesub3s
-        const supOrder = await createSupplierOrder(
+        // Tự động gọi API NCC (Hỗ trợ cả ScoopyVN và RoboticVN)
+        const fulfillmentRes = await fulfillFromSupplier(
           supplierVariantId.trim(),
-          needFromApiQty
+          needFromApiQty,
+          order.product?.price || 2_000_000
         );
-        if (supOrder.success && supOrder.orderId) {
-          const supDelivery = await getSupplierDelivery(supOrder.orderId);
-          if (supDelivery.success && supDelivery.items.length > 0) {
-            apiDeliveredTexts.push(...supDelivery.items.map((it) => it.rawText));
-          } else {
-            supplierErrorMsg =
-              supDelivery.error || "Chưa nhận được bàn giao từ NCC";
-          }
+        if (fulfillmentRes.success && fulfillmentRes.items.length > 0) {
+          apiDeliveredTexts.push(...fulfillmentRes.items);
         } else {
-          supplierErrorMsg = supOrder.error || "Lỗi tạo đơn qua API NCC";
+          supplierErrorMsg = fulfillmentRes.error || "Lỗi tạo đơn qua API NCC";
         }
       }
     }
@@ -230,7 +378,7 @@ export async function POST(req: NextRequest) {
                 "vi-VN"
               )} đ</b> cho đơn hàng <code>${order.id}</code>.\n\n` +
               `Gói dịch vụ của Quý khách đang được chuyên viên hệ thống khởi tạo tự động. Tài khoản bàn giao sẽ được gửi tới Quý khách trong ít phút.\n\n` +
-              `Nếu cần hỗ trợ ưu tiên ngay lập tức, Quý khách vui lòng liên hệ Admin <b>@zophim</b>. Trân trọng cảm ơn Quý khách!`,
+              `Nếu cần hỗ trợ ưu tiên ngay lập tức, Quý khách vui lòng liên hệ Admin <b>@rinq_hotro</b>. Trân trọng cảm ơn Quý khách!`,
             parse_mode: "HTML",
           }),
         }).catch(() => {});
@@ -240,7 +388,7 @@ export async function POST(req: NextRequest) {
       await prisma.order.update({
         where: { id: order.id },
         data: {
-          status: "PAID",
+          status: "PAID_PENDING_FULFILLMENT",
           paidAt: new Date(),
         },
       });
@@ -256,13 +404,14 @@ export async function POST(req: NextRequest) {
     const result = await prisma.$transaction(async (tx) => {
       // Đánh dấu các stock thủ công đã bán
       for (const st of manualToDeliver) {
-        await tx.stockItem.update({
-          where: { id: st.id },
+        const reserved = await tx.stockItem.updateMany({
+          where: { id: st.id, isSold: false },
           data: {
             isSold: true,
             orderId: order.id,
           },
         });
+        if (reserved.count !== 1) throw new Error("STOCK_RACE");
       }
 
       // Lưu các tài khoản nhận từ API vào DB với cờ đã bán
@@ -324,6 +473,10 @@ export async function POST(req: NextRequest) {
           "\n\n";
       }
 
+      const warrantyNotice = order.product.warranty
+        ? `<blockquote>⏱ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
+        : "";
+
       const message =
         `✦ <b>XÁC NHẬN GIAO DỊCH THÀNH CÔNG</b> ✦\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
@@ -336,9 +489,10 @@ export async function POST(req: NextRequest) {
         `🕒 <b>Thời gian ghi nhận:</b> ${new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}\n\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
         keysText +
+        warrantyNotice +
         `<blockquote>💡 <i>Ghi chú: Quý khách chạm trực tiếp vào dòng mã trên để tự động sao chép toàn bộ.</i></blockquote>\n\n` +
         `RINQ SHOP xin chân thành cảm ơn Quý khách đã tin tưởng và đồng hành cùng chúng tôi.\n` +
-        `Nếu cần hỗ trợ bảo hành hoặc tư vấn, Quý khách vui lòng liên hệ Admin <b>@zophim</b> để được phục vụ chu đáo nhất. Trân trọng!`;
+        `Nếu cần hỗ trợ bảo hành hoặc tư vấn, Quý khách vui lòng liên hệ Admin <b>@rinq_hotro</b> để được phục vụ chu đáo nhất. Trân trọng!`;
 
       const deliveryKeyboard = {
         inline_keyboard: [
@@ -347,7 +501,7 @@ export async function POST(req: NextRequest) {
             { text: "📦 Lịch sử đơn hàng", callback_data: "inline_my_orders" },
           ],
           [
-            { text: "💬 Hỗ trợ bảo hành (@zophim)", url: "https://t.me/zophim" },
+            { text: "💬 Hỗ trợ bảo hành (@rinq_hotro)", url: "https://t.me/rinq_hotro" },
           ],
         ],
       };
@@ -374,6 +528,12 @@ export async function POST(req: NextRequest) {
       orderId: result.order.id,
     });
   } catch (error: any) {
+    if (claimedOrderId) {
+      await prisma.order.updateMany({
+        where: { id: claimedOrderId, status: "PROCESSING" },
+        data: { status: "PAID_PENDING_FULFILLMENT", paidAt: new Date() },
+      }).catch(() => {});
+    }
     if (error?.message === "OUT_OF_STOCK") {
       return NextResponse.json(
         { error: "Kho đã hết hàng cho sản phẩm này! Vui lòng nạp thêm hàng vào kho." },

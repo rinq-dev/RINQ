@@ -33,14 +33,14 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-slate-950 px-4 text-white">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/[0.04] p-7 shadow-2xl">
-        <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-300">
+    <main className="swiss-admin min-h-screen flex items-center justify-center bg-[#F4F4F4] px-4 text-black">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-2xl border-2 border-black bg-white p-7 shadow-none">
+        <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-[#E63946] text-white">
           <LockKeyhole className="h-6 w-6" />
         </div>
         <h1 className="text-2xl font-bold">Đăng nhập quản trị</h1>
-        <p className="mt-2 text-sm text-slate-400">Phiên đăng nhập sẽ tự hết hạn sau 8 giờ.</p>
-        <label htmlFor="password" className="mt-6 block text-sm font-medium text-slate-200">Mật khẩu</label>
+        <p className="mt-2 text-sm text-slate-600">Phiên đăng nhập sẽ tự hết hạn sau 8 giờ.</p>
+        <label htmlFor="password" className="mt-6 block text-sm font-medium text-black">Mật khẩu</label>
         <input
           id="password"
           type="password"
@@ -48,10 +48,10 @@ export default function AdminLoginPage() {
           required
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          className="mt-2 w-full rounded-xl border border-white/15 bg-slate-900 px-4 py-3 outline-none focus:border-emerald-400"
+          className="mt-2 w-full rounded-xl border-2 border-black bg-white px-4 py-3 outline-none focus:border-[#E63946]"
         />
-        {error && <p role="alert" className="mt-3 text-sm text-red-300">{error}</p>}
-        <button disabled={busy} className="mt-5 w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold hover:bg-emerald-500 disabled:opacity-60">
+        {error && <p role="alert" className="mt-3 text-sm font-bold text-[#E63946]">{error}</p>}
+        <button disabled={busy} className="mt-5 w-full rounded-xl border-2 border-black bg-[#E63946] px-4 py-3 font-bold uppercase tracking-wide text-black hover:bg-[#C92F3D] disabled:opacity-60">
           {busy ? "Đang xác thực…" : "Đăng nhập"}
         </button>
       </form>

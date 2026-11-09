@@ -10,14 +10,60 @@ CREATE TABLE IF NOT EXISTS "Product" (
     "price" INTEGER NOT NULL,
     "description" TEXT,
     "category" TEXT,
+    "warranty" TEXT,
     "priceNote" TEXT,
     "imageUrl" TEXT,
     "supplierVariantId" TEXT,
     "fulfillmentType" TEXT DEFAULT 'HYBRID',
+    "retailMarginPercent" INTEGER NOT NULL DEFAULT 15,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "Product_pkey" PRIMARY KEY ("id")
 );
+
+-- Bổ sung cột warranty nếu bảng Product đã tồn tại từ trước
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'Product' AND column_name = 'warranty'
+    ) THEN
+        ALTER TABLE "Product" ADD COLUMN "warranty" TEXT;
+    END IF;
+END $$;
+
+-- Keep older installations aligned with prisma/schema.prisma.
+ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "priceNote" TEXT;
+ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "supplierVariantId" TEXT;
+ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "fulfillmentType" TEXT DEFAULT 'HYBRID';
+ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "retailMarginPercent" INTEGER NOT NULL DEFAULT 15;
+ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "lastSupplierPrice" INTEGER;
+ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "autoPriceSync" BOOLEAN NOT NULL DEFAULT true;
+
+-- Lịch sử nhập hàng từ nhà cung cấp; id là khóa idempotency gửi sang API.
+CREATE TABLE IF NOT EXISTS "SupplierPurchase" (
+    "id" TEXT NOT NULL,
+    "requestHash" TEXT NOT NULL,
+    "supplierProductId" TEXT NOT NULL,
+    "supplierProductName" TEXT NOT NULL,
+    "quantity" INTEGER NOT NULL,
+    "maxTotalVnd" INTEGER NOT NULL,
+    "targetProductId" INTEGER,
+    "createProductName" TEXT,
+    "createProductCategory" TEXT,
+    "createProductRetailPrice" INTEGER,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "supplierOrderId" TEXT,
+    "totalVnd" INTEGER,
+    "itemCount" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "SupplierPurchase_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "SupplierPurchase_targetProductId_fkey" FOREIGN KEY ("targetProductId") REFERENCES "Product"("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "SupplierPurchase_supplierOrderId_key" ON "SupplierPurchase"("supplierOrderId");
+CREATE INDEX IF NOT EXISTS "SupplierPurchase_status_createdAt_idx" ON "SupplierPurchase"("status", "createdAt");
+CREATE INDEX IF NOT EXISTS "SupplierPurchase_supplierProductId_createdAt_idx" ON "SupplierPurchase"("supplierProductId", "createdAt");
 
 -- 2. Bảng StockItem
 CREATE TABLE IF NOT EXISTS "StockItem" (
@@ -125,6 +171,17 @@ CREATE TABLE IF NOT EXISTS "GiveawayWinner" (
 CREATE INDEX IF NOT EXISTS "StockItem_productId_isSold_idx" ON "StockItem"("productId", "isSold");
 CREATE INDEX IF NOT EXISTS "Order_telegramId_status_idx" ON "Order"("telegramId", "status");
 CREATE INDEX IF NOT EXISTS "WebAuthSession_token_isVerified_idx" ON "WebAuthSession"("token", "isVerified");
+ALTER TABLE "WebAuthSession" ADD COLUMN IF NOT EXISTS "sessionToken" TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS "WebAuthSession_sessionToken_key" ON "WebAuthSession"("sessionToken");
+CREATE TABLE IF NOT EXISTS "CustomerSession" (
+    "token" TEXT NOT NULL,
+    "telegramId" TEXT NOT NULL,
+    "username" TEXT,
+    "firstName" TEXT,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "CustomerSession_pkey" PRIMARY KEY ("token")
+);
+CREATE INDEX IF NOT EXISTS "CustomerSession_telegramId_expiresAt_idx" ON "CustomerSession"("telegramId", "expiresAt");
 CREATE UNIQUE INDEX IF NOT EXISTS "Coupon_code_key" ON "Coupon"("code");
 CREATE UNIQUE INDEX IF NOT EXISTS "GiveawayParticipant_giveawayId_telegramId_key" ON "GiveawayParticipant"("giveawayId", "telegramId");
 
@@ -146,3 +203,9 @@ DO $$ BEGIN
         ALTER TABLE "GiveawayWinner" ADD CONSTRAINT "GiveawayWinner_giveawayId_fkey" FOREIGN KEY ("giveawayId") REFERENCES "Giveaway"("id") ON DELETE CASCADE ON UPDATE CASCADE;
     END IF;
 END $$;
+create table if not exists public."AppSetting" (
+  "key" text primary key,
+  "value" text not null,
+  "updatedAt" timestamp(3) not null default current_timestamp
+);
+

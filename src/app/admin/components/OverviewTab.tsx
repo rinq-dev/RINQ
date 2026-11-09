@@ -32,9 +32,10 @@ interface OverviewTabProps {
   realCustomers: { id: string; name: string }[];
   copiedBank: boolean;
   copiedOrderId: string | null;
+  systemStatus: { bankId: string; bankAccountNo: string } | null;
   copyToClipboard: (text: string, type: any, id?: string) => void;
   setActiveTab: (
-    tab: "overview" | "products" | "orders" | "coupons" | "giveaways" | "broadcast"
+    tab: "overview" | "products" | "orders" | "customers" | "coupons" | "giveaways" | "broadcast"
   ) => void;
 }
 
@@ -49,6 +50,7 @@ export default function OverviewTab({
   realCustomers,
   copiedBank,
   copiedOrderId,
+  systemStatus,
   copyToClipboard,
   setActiveTab,
 }: OverviewTabProps) {
@@ -68,7 +70,7 @@ export default function OverviewTab({
           </div>
           <div className="text-[10px] text-emerald-700 font-bold mt-1 flex items-center gap-1">
             <TrendingUp className="h-3 w-3" />
-            +100% VietQR tự động
+            Đơn đã thanh toán / cần cấp hàng
           </div>
         </div>
 
@@ -138,12 +140,12 @@ export default function OverviewTab({
           </div>
 
           {/* Styled Emerald Bank Card */}
-          <div className="bg-gradient-to-br from-[#0c6b45] via-[#095737] to-[#043b24] text-white rounded-[24px] p-5 shadow-lg shadow-emerald-950/20 relative overflow-hidden my-1 group transition-transform hover:scale-[1.01]">
+          <div className="bank-card bg-gradient-to-br from-[#0c6b45] via-[#095737] to-[#043b24] text-white rounded-[24px] p-5 shadow-lg shadow-emerald-950/20 relative overflow-hidden my-1 group transition-transform hover:scale-[1.01]">
             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full pointer-events-none blur-xl group-hover:bg-white/10 transition-all duration-500" />
 
             <div className="flex items-center justify-between mb-4">
               <span className="font-black tracking-widest text-sm text-emerald-200">
-                TPBANK
+                {(systemStatus?.bankId || "MB").toUpperCase()}
               </span>
               <div className="flex items-center gap-1.5">
                 <Radio className="h-4 w-4 text-emerald-300 animate-pulse" />
@@ -162,11 +164,12 @@ export default function OverviewTab({
 
             <div className="flex items-center justify-between text-xs text-emerald-100 font-mono pt-1">
               <button
-                onClick={() => copyToClipboard("10005025333", "bank")}
+                onClick={() => copyToClipboard(systemStatus?.bankAccountNo || "", "bank")}
+                disabled={!systemStatus?.bankAccountNo}
                 className="flex items-center gap-1.5 bg-black/20 hover:bg-black/30 px-2.5 py-1 rounded-lg transition"
                 title="Sao chép số tài khoản"
               >
-                <span>10005025333</span>
+                <span>{systemStatus?.bankAccountNo || "Chưa cấu hình"}</span>
                 {copiedBank ? <Check className="h-3 w-3 text-emerald-300" /> : <Copy className="h-3 w-3 opacity-70" />}
               </button>
               <span className="font-bold tracking-wider flex items-center gap-1.5">
@@ -185,7 +188,7 @@ export default function OverviewTab({
             </div>
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-[#0e704b] border border-emerald-100">
               <Flame className="h-3.5 w-3.5 text-amber-500" />
-              Khớp 3-5 giây
+              Chỉ tính tiền đã xác nhận
             </span>
           </div>
         </div>
@@ -429,6 +432,21 @@ export default function OverviewTab({
                         <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0e704b]">
                           <span className="h-2 w-2 rounded-full bg-[#0e704b] animate-pulse" />
                           Thành công
+                        </span>
+                      ) : o.status === "PAID_PENDING_FULFILLMENT" || o.status === "PROCESSING" ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700">
+                          <span className="h-2 w-2 rounded-full bg-orange-500" />
+                          Cần cấp hàng
+                        </span>
+                      ) : o.status === "CANCELLED" ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                          <span className="h-2 w-2 rounded-full bg-slate-400" />
+                          Đã hủy
+                        </span>
+                      ) : o.status === "EXPIRED" ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                          <span className="h-2 w-2 rounded-full bg-slate-400" />
+                          Hết hạn
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600">

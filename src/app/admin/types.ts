@@ -4,10 +4,12 @@ export interface Product {
   price: number;
   description: string | null;
   category: string | null;
+  warranty?: string | null;
   priceNote?: string | null;
   imageUrl?: string | null;
   supplierVariantId?: string | null;
   fulfillmentType?: string | null;
+  retailMarginPercent?: number;
   isActive: boolean;
   createdAt: string;
   stockAvailable: number;
@@ -22,7 +24,7 @@ export interface Order {
   productId: number;
   quantity?: number;
   totalAmount: number;
-  status: "PENDING" | "PAID" | "EXPIRED";
+  status: "PENDING" | "PROCESSING" | "PAID_PENDING_FULFILLMENT" | "PAID" | "EXPIRED" | "CANCELLED";
   createdAt: string;
   paidAt: string | null;
   product?: {
@@ -41,6 +43,7 @@ export interface Stats {
   totalOrders: number;
   paidOrders: number;
   pendingOrders: number;
+  fulfillmentPendingOrders?: number;
   totalStockAvailable: number;
   totalStockSold: number;
   subscriberCount?: number;
@@ -70,5 +73,18 @@ export interface Giveaway {
     telegramId: string;
     username: string | null;
   }[];
+}
+
+export interface Customer {
+  id: string;
+  username: string | null;
+  firstName: string | null;
+  balance?: number;
+  createdAt: string;
+  orderCount: number;
+  paidOrderCount: number;
+  totalSpent: number;
+  lastOrderAt: string | null;
+  source: "telegram" | "order";
 }
 

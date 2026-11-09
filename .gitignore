@@ -2,8 +2,11 @@
 .env.*
 !.env.example
 node_modules/
+src/generated/prisma/
 .next/
 .open-next/
+.wrangler/
+.wrangler-dry/
 out/
 coverage/
 *.tsbuildinfo

@@ -1,12 +1,13 @@
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-arm64-openssl-3.0.x", "linux-arm64-openssl-1.1.x"]
+  provider   = "prisma-client"
+  output     = "../src/generated/prisma"
+  engineType = "client"
+  runtime    = "workerd"
 }
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model Product {
@@ -15,14 +16,49 @@ model Product {
   price             Int
   description       String?
   category          String?
+  warranty          String?
   priceNote         String?
   imageUrl          String?
   supplierVariantId String?
   fulfillmentType   String?     @default("HYBRID")
+  retailMarginPercent Int       @default(15)
+  lastSupplierPrice   Int?
+  autoPriceSync       Boolean   @default(true)
   isActive          Boolean     @default(true)
   stocks            StockItem[]
   orders            Order[]
+  supplierPurchases SupplierPurchase[]
+  restockSubscriptions RestockSubscription[]
   createdAt         DateTime    @default(now())
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model SupplierPurchase {
+  id                     String    @id
+  requestHash            String
+  supplierProductId      String
+  supplierProductName    String
+  quantity               Int
+  maxTotalVnd            Int
+  targetProductId        Int?
+  createProductName      String?
+  createProductCategory  String?
+  createProductRetailPrice Int?
+  status                 String    @default("PENDING")
+  supplierOrderId        String?   @unique
+  totalVnd               Int?
+  itemCount              Int       @default(0)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  targetProduct          Product?  @relation(fields: [targetProductId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([supplierProductId, createdAt])
 }
 
 model StockItem {
@@ -31,6 +67,7 @@ model StockItem {
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   data      String
   isSold    Boolean  @default(false)
+  isFaulty  Boolean  @default(false)
   orderId   String?
   order     Order?   @relation(fields: [orderId], references: [id])
   createdAt DateTime @default(now())
@@ -39,26 +76,43 @@ model StockItem {
 }
 
 model Order {
-  id          String      @id
-  telegramId  String
-  username    String?
-  productId   Int
-  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantity    Int         @default(1)
-  totalAmount Int
-  status      String      @default("PENDING")
-  qrMessageId Int?
-  stocks      StockItem[]
-  createdAt   DateTime    @default(now())
-  paidAt      DateTime?
+  id                  String      @id
+  telegramId          String
+  username            String?
+  productId           Int
+  product             Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity            Int         @default(1)
+  totalAmount         Int
+  status              String      @default("PENDING")
+  qrMessageId         Int?
+  stocks              StockItem[]
+  warrantyCount       Int         @default(0)
+  warrantyReplacedAt  DateTime?
+  warrantyNote        String?
+  createdAt           DateTime    @default(now())
+  paidAt              DateTime?
 
   @@index([telegramId, status])
+}
+
+model RestockSubscription {
+  id         Int      @id @default(autoincrement())
+  productId  Int
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  telegramId String
+  username   String?
+  createdAt  DateTime @default(now())
+
+  @@unique([productId, telegramId])
+  @@index([productId])
+  @@index([telegramId])
 }
 
 model TelegramUser {
   id        String   @id
   username  String?
   firstName String?
+  balance   Int      @default(0)
   createdAt DateTime @default(now())
 }
 
@@ -69,10 +123,21 @@ model WebAuthSession {
   firstName  String?
   photoUrl   String?
   isVerified Boolean  @default(false)
+  sessionToken String? @unique
   createdAt  DateTime @default(now())
   expiresAt  DateTime
 
   @@index([token, isVerified])
+}
+
+model CustomerSession {
+  token      String   @id
+  telegramId String
+  username   String?
+  firstName  String?
+  expiresAt  DateTime
+
+  @@index([telegramId, expiresAt])
 }
 
 model BotHeartbeat {
@@ -123,4 +188,19 @@ model GiveawayWinner {
   telegramId String
   username   String?
   createdAt  DateTime @default(now())
+}
+
+model WalletTransaction {
+  id          String   @id
+  telegramId  String
+  amount      Int
+  type        String   @default("DEPOSIT")
+  status      String   @default("PENDING")
+  description String?
+  qrMessageId Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([telegramId, createdAt])
+  @@index([status, createdAt])
 }

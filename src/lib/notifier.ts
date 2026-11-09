@@ -1,69 +1,82 @@
 import { prisma } from "./prisma";
 
-// Khởi tạo bảng lưu subscriber nếu chưa có
-export async function initSubscriberTable() {
-  try {
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS TelegramUser (
-        id TEXT PRIMARY KEY,
-        username TEXT,
-        firstName TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-  } catch (error) {
-    console.error("Lỗi khởi tạo TelegramUser table:", error);
-  }
-}
-
 // Lưu user khi bấm /start
 export async function addSubscriber(id: string, username?: string, firstName?: string) {
   try {
-    await initSubscriberTable();
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO TelegramUser (id, username, firstName) VALUES (?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET username = excluded.username, firstName = excluded.firstName`,
-      id,
-      username || null,
-      firstName || null
-    );
+    await prisma.telegramUser.upsert({
+      where: { id },
+      update: {
+        username: username || null,
+        firstName: firstName || null,
+      },
+      create: {
+        id,
+        username: username || null,
+        firstName: firstName || null,
+      },
+    });
   } catch (error) {
     console.error("Lỗi thêm subscriber:", error);
   }
 }
 
-// Lấy danh sách ID người nhận (gồm cả user /start và khách từng đặt đơn)
+// Lấy danh sách ID người nhận (gồm cả user /start, khách web auth và khách từng đặt đơn)
 export async function getAllSubscriberIds(): Promise<string[]> {
-  try {
-    await initSubscriberTable();
-    const rows = await prisma.$queryRawUnsafe<{ id: string }[]>(
-      `SELECT id FROM TelegramUser`
-    );
+  const set = new Set<string>();
 
+  try {
+    const rows = await prisma.telegramUser.findMany({
+      select: { id: true },
+    });
+    rows.forEach((r) => {
+      if (r.id) set.add(String(r.id).trim());
+    });
+  } catch (err) {
+    console.warn("Lỗi lấy TelegramUser:", err);
+  }
+
+  try {
     const orderUsers = await prisma.order.findMany({
       select: { telegramId: true },
       distinct: ["telegramId"],
     });
-
-    const set = new Set<string>();
-    rows.forEach((r) => {
-      if (r.id) set.add(String(r.id));
-    });
     orderUsers.forEach((o) => {
-      if (o.telegramId) set.add(String(o.telegramId));
+      if (o.telegramId) set.add(String(o.telegramId).trim());
     });
-
-    // Thêm kênh thông báo (nếu có cấu hình trong .env)
-    const channelId = process.env.TELEGRAM_CHANNEL_ID;
-    if (channelId && channelId.trim()) {
-      set.add(channelId.trim());
-    }
-
-    return Array.from(set);
-  } catch (error) {
-    console.error("Lỗi lấy danh sách subscribers:", error);
-    return [];
+  } catch (err) {
+    console.warn("Lỗi lấy orderUsers:", err);
   }
+
+  try {
+    const sessionUsers = await prisma.webAuthSession.findMany({
+      where: { isVerified: true, telegramId: { not: null } },
+      select: { telegramId: true },
+    });
+    sessionUsers.forEach((s) => {
+      if (s.telegramId) set.add(String(s.telegramId).trim());
+    });
+  } catch (err) {
+    console.warn("Lỗi lấy sessionUsers:", err);
+  }
+
+  // Luôn bao gồm Admin Telegram ID để nhận thông báo và tính vào lượng người dùng
+  const adminId = process.env.ADMIN_TELEGRAM_ID;
+  if (adminId && adminId.trim()) {
+    set.add(adminId.trim());
+  }
+
+  // Thêm kênh thông báo (nếu có cấu hình trong .env)
+  const channelId = process.env.TELEGRAM_CHANNEL_ID;
+  if (channelId && channelId.trim()) {
+    set.add(channelId.trim());
+  }
+
+  // Đảm bảo loại bỏ giá trị rỗng
+  set.delete("");
+  set.delete("undefined");
+  set.delete("null");
+
+  return Array.from(set);
 }
 
 // Đếm số lượng subscribers
@@ -98,7 +111,7 @@ export async function broadcastStockAlert({
 
   const message =
     `✦ <b>RINQ SHOP · THÔNG BÁO TÀI NGUYÊN VỀ KHO</b> ✦\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `\n` +
     `Kính gửi Quý khách, sản phẩm Quý khách quan tâm vừa được cập nhật thêm số lượng mới vào kho:\n\n` +
     `📦 <b>Sản phẩm:</b> <b>${productName}</b>\n` +
     `⚡ <b>Số lượng bổ sung:</b> <b>+${addedCount} tài nguyên</b>\n` +
@@ -139,8 +152,20 @@ export async function broadcastStockAlert({
   return { success: true, sentCount, total: recipients.length };
 }
 
-// Bắn thông báo tùy chỉnh bất kỳ từ Admin
-export async function broadcastCustomMessage(text: string) {
+// Bắn chiến dịch marketing tùy chỉnh từ Admin.
+export async function broadcastCustomMessage({
+  title,
+  text,
+  imageUrl,
+  buttonText,
+  buttonUrl,
+}: {
+  title?: string;
+  text: string;
+  imageUrl?: string;
+  buttonText?: string;
+  buttonUrl?: string;
+}) {
   const botToken = process.env.BOT_TOKEN;
   if (!botToken) {
     return { success: false, error: "BOT_TOKEN chưa được cấu hình" };
@@ -151,19 +176,22 @@ export async function broadcastCustomMessage(text: string) {
     return { success: true, sentCount: 0, total: 0, message: "Chưa có người dùng nào" };
   }
 
-  const fullMessage = `📢 <b>THÔNG BÁO TỪ RINQ SHOP</b>\n\n${text}`;
+  const fullMessage = `${title?.trim() ? `<b>${title.trim()}</b>` : "📢 <b>RINQ SHOP</b>"}\n\n${text}`;
+  const replyMarkup = buttonText?.trim() && buttonUrl?.trim()
+    ? { inline_keyboard: [[{ text: buttonText.trim().slice(0, 64), url: buttonUrl.trim() }]] }
+    : undefined;
 
   let sentCount = 0;
   for (const chatId of recipients) {
     try {
-      const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      const method = imageUrl?.trim() ? "sendPhoto" : "sendMessage";
+      const payload = imageUrl?.trim()
+        ? { chat_id: chatId, photo: imageUrl.trim(), caption: fullMessage, parse_mode: "HTML", reply_markup: replyMarkup }
+        : { chat_id: chatId, text: fullMessage, parse_mode: "HTML", reply_markup: replyMarkup };
+      const res = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: fullMessage,
-          parse_mode: "HTML",
-        }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) sentCount++;
     } catch (err) {
@@ -208,7 +236,7 @@ export async function broadcastPriceUpdate({
 
   const message =
     `<b>${header}</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `\n` +
     `Kính gửi Quý khách, RINQ SHOP xin trân trọng thông báo thông tin cập nhật giá sản phẩm:\n\n` +
     `📦 <b>Sản phẩm:</b> <b>${productName}</b>\n` +
     `💸 <b>Đơn giá trước đây:</b> <s>${oldPrice.toLocaleString("vi-VN")} đ</s>\n` +

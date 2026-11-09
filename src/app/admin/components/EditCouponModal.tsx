@@ -38,8 +38,8 @@ export default function EditCouponModal({
   if (!editingCoupon) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-[28px] border border-slate-100 bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-[28px] border border-slate-100 bg-white p-4 sm:p-6 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
           <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
             <Tag className="h-5 w-5 text-[#0e704b]" />

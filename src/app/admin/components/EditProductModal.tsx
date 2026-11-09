@@ -3,6 +3,7 @@
 import React from "react";
 import { Edit, X, Server } from "lucide-react";
 import { Product } from "../types";
+import ProductImageField from "./ProductImageField";
 
 interface EditProductModalProps {
   editingProduct: Product | null;
@@ -13,6 +14,8 @@ interface EditProductModalProps {
   setEditPrice: (val: string) => void;
   editDesc: string;
   setEditDesc: (val: string) => void;
+  editWarranty: string;
+  setEditWarranty: (val: string) => void;
   editCategory: string;
   setEditCategory: (val: string) => void;
   editPriceReason: string;
@@ -40,6 +43,8 @@ export default function EditProductModal({
   setEditPrice,
   editDesc,
   setEditDesc,
+  editWarranty,
+  setEditWarranty,
   editCategory,
   setEditCategory,
   editPriceReason,
@@ -60,8 +65,8 @@ export default function EditProductModal({
   if (!editingProduct) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-lg rounded-[28px] border border-slate-100 bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-lg rounded-[28px] border border-slate-100 bg-white p-4 sm:p-6 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
           <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
             <Edit className="h-5 w-5 text-[#0e704b]" />
@@ -123,15 +128,16 @@ export default function EditProductModal({
                 {categoriesList.map((c) => (
                   <option key={c.name} value={c.name} />
                 ))}
-                <option value="Gemini" />
-                <option value="Netflix" />
-                <option value="ChatGPT" />
-                <option value="Canva" />
-                <option value="Youtube Premium" />
-                <option value="Spotify" />
+                <option value="AI & Trí tuệ nhân tạo" />
+                <option value="Giải trí & Streaming" />
+                <option value="Đồ họa & Sáng tạo" />
+                <option value="Văn phòng & Công việc" />
+                <option value="Mạng & Bảo mật" />
+                <option value="Học tập & Ngoại ngữ" />
+                <option value="Dịch vụ & Tiện ích khác" />
               </datalist>
               <div className="flex flex-wrap items-center gap-1 mt-1.5">
-                {["Gemini", "Netflix", "ChatGPT", "Canva", "Youtube Premium", "Spotify"].map((preset) => (
+                {["AI & Trí tuệ nhân tạo", "Giải trí & Streaming", "Đồ họa & Sáng tạo", "Văn phòng & Công việc", "Mạng & Bảo mật", "Học tập & Ngoại ngữ"].map((preset) => (
                   <button
                     key={preset}
                     type="button"
@@ -165,34 +171,7 @@ export default function EditProductModal({
             </p>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1 flex items-center justify-between">
-              <span>Ảnh sản phẩm (URL Banner/Thumbnail)</span>
-              <span className="text-[10px] text-slate-400 font-normal">Tùy chọn</span>
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="url"
-                value={editProductImage}
-                onChange={(e) => setEditProductImage(e.target.value)}
-                placeholder="https://... link ảnh banner"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-600 font-mono"
-              />
-              {editProductImage && (
-                <img
-                  src={editProductImage}
-                  alt="Preview"
-                  className="h-8 w-8 rounded-lg object-cover border border-slate-200 shrink-0 shadow-xs"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = "none";
-                  }}
-                />
-              )}
-            </div>
-            <p className="text-[10px] text-slate-500 mt-1">
-              Hiển thị dạng ảnh banner phía trên chi tiết sản phẩm trên Telegram Bot.
-            </p>
-          </div>
+          <ProductImageField id="edit-product-image" value={editProductImage} onChange={setEditProductImage} />
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">
@@ -206,11 +185,27 @@ export default function EditProductModal({
             />
           </div>
 
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">
+              Chính sách bảo hành
+            </label>
+            <textarea
+              rows={3}
+              value={editWarranty}
+              onChange={(e) => setEditWarranty(e.target.value)}
+              placeholder={'⏱ BẢO HÀNH 1 GIỜ TỪ THANH TOÁN THÀNH CÔNG\n⏱ Hạn gửi hỗ trợ: trong 1 giờ kể từ lúc đơn được xác nhận thanh toán thành công.'}
+              className="w-full rounded-xl border border-violet-200 bg-violet-50/50 px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-violet-400"
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              Nội dung này hiển thị trên web, chi tiết sản phẩm trong bot và tin nhắn giao hàng.
+            </p>
+          </div>
+
           {/* Nguồn cấp hàng tự động API NCC */}
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2.5">
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
               <Server className="h-4 w-4 text-[#0e704b]" />
-              <span>Nguồn Cấp Hàng Tự Động (API LikeSub3s)</span>
+              <span>Nguồn Cấp Hàng Tự Động (RoboticVN API)</span>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -259,7 +254,7 @@ export default function EditProductModal({
               htmlFor="editNotify"
               className="text-xs text-slate-700 cursor-pointer font-medium select-none"
             >
-              Bắn thông báo giá mới kèm lý do ngay lập tức tới <b>{subscriberCount}</b> khách hàng
+              Bắn thông báo điều chỉnh giá tới <b>{subscriberCount}</b> khách hàng qua Bot (mặc định tắt, chỉ gửi khi có đổi giá)
             </label>
           </div>
 
