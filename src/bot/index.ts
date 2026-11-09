@@ -616,7 +616,7 @@ bot.callbackQuery(/^prod:(\d+)$/, async (ctx) => {
   if (product.warranty?.trim()) {
     const rawWarranty = product.warranty.trim();
     const hasHeader = /chính sách bảo hành/i.test(rawWarranty.split("\n")[0] || "");
-    warrantyText = `<blockquote>${hasHeader ? "" : "⏱ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n"}${rawWarranty}</blockquote>\n\n`;
+    warrantyText = `<blockquote>${hasHeader ? "" : "🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n"}${rawWarranty}</blockquote>\n\n`;
   }
 
   // Xóa tin nhắn danh mục cũ để thay thế bằng giao diện chi tiết sản phẩm
@@ -1441,7 +1441,7 @@ bot.callbackQuery(/^pay_balance:(DH[A-F0-9]+)$/, async (ctx) => {
 
   if (finalStatus === "PAID" && keysToDeliver.length > 0) {
     const warrantyNotice = order.product?.warranty?.trim()
-      ? `<blockquote>⏱ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
+      ? `<blockquote>🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
       : "";
 
     await ctx.reply(
@@ -1591,7 +1591,7 @@ bot.command("duyet", async (ctx) => {
     let customerMsg = "";
     if (finalStatus === "PAID" && keysToDeliver.length > 0) {
       const warrantyNotice = order.product?.warranty?.trim()
-        ? `<blockquote>⏱ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
+        ? `<blockquote>🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
         : "";
 
       customerMsg =

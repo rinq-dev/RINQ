@@ -474,7 +474,7 @@ export async function POST(req: NextRequest) {
       }
 
       const warrantyNotice = order.product.warranty
-        ? `<blockquote>⏱ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
+        ? `<blockquote>🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
         : "";
 
       const message =
