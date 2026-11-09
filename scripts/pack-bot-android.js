@@ -6,17 +6,23 @@ const path = require("path");
 const androidRoot = path.resolve("rinq-bot-android");
 const botRuntimeLibraries = [
   "admin-session.ts",
-  "bot-status.ts",
-  "crypto.ts",
-  "notifier.ts",
-  "promo.ts",
-  "supplier.ts",
-  "telegram-auth.ts",
-  "web-auth.ts",
-  "order-policy.ts",
-  "restock.ts",
-  "warranty.ts",
   "app-settings.ts",
+  "bot-status.ts",
+  "categories.ts",
+  "crypto.ts",
+  "customer-auth.ts",
+  "notifier.ts",
+  "order-policy.ts",
+  "price-sync.ts",
+  "promo.ts",
+  "restock.ts",
+  "robotic.ts",
+  "scoopy.ts",
+  "supplier.ts",
+  "supplier-fulfillment.ts",
+  "telegram-auth.ts",
+  "warranty.ts",
+  "web-auth.ts",
 ];
 for (const name of botRuntimeLibraries) {
   fs.copyFileSync(path.resolve("src/lib", name), path.join(androidRoot, "src/lib", name));

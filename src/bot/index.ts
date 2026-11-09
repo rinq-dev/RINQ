@@ -144,7 +144,7 @@ export async function fetchProductsWithSupplierMeta(whereClause: any = { isActiv
 
   try {
     const rawList = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, priceNote, supplierVariantId, fulfillmentType, imageUrl FROM "Product"`
+      `SELECT id, priceNote, supplierVariantId, fulfillmentType, imageUrl, warranty FROM "Product"`
     );
     if (rawList && Array.isArray(rawList)) {
       const rawMap = new Map(rawList.map((r) => [Number(r.id), r]));
@@ -156,6 +156,7 @@ export async function fetchProductsWithSupplierMeta(whereClause: any = { isActiv
           imageUrl: extra?.imageUrl || (p as any).imageUrl || null,
           supplierVariantId: extra?.supplierVariantId || null,
           fulfillmentType: extra?.fulfillmentType || "HYBRID",
+          warranty: extra?.warranty || p.warranty || null,
         };
       });
     }
@@ -168,6 +169,7 @@ export async function fetchProductsWithSupplierMeta(whereClause: any = { isActiv
     imageUrl: (p as any).imageUrl || null,
     supplierVariantId: (p as any).supplierVariantId || null,
     fulfillmentType: (p as any).fulfillmentType || "HYBRID",
+    warranty: p.warranty || null,
   }));
 }
 
@@ -185,7 +187,7 @@ export async function fetchSingleProductWithSupplierMeta(id: number): Promise<an
 
   try {
     const pRows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT priceNote, supplierVariantId, fulfillmentType, imageUrl FROM "Product" WHERE id = ?`,
+      `SELECT priceNote, supplierVariantId, fulfillmentType, imageUrl, warranty FROM "Product" WHERE id = ?`,
       id
     );
     if (pRows && pRows.length > 0) {
@@ -196,6 +198,7 @@ export async function fetchSingleProductWithSupplierMeta(id: number): Promise<an
         imageUrl: extra.imageUrl || (product as any).imageUrl || null,
         supplierVariantId: extra.supplierVariantId || null,
         fulfillmentType: extra.fulfillmentType || "HYBRID",
+        warranty: extra.warranty || product.warranty || null,
       };
     }
   } catch {}
@@ -205,6 +208,7 @@ export async function fetchSingleProductWithSupplierMeta(id: number): Promise<an
     imageUrl: (product as any).imageUrl || null,
     supplierVariantId: (product as any).supplierVariantId || null,
     fulfillmentType: (product as any).fulfillmentType || "HYBRID",
+    warranty: product.warranty || null,
   };
 }
 
@@ -608,6 +612,9 @@ bot.callbackQuery(/^prod:(\d+)$/, async (ctx) => {
   const priceNoteText = (product as any).priceNote
     ? `<blockquote>📝 <b>Ghi chú:</b>\n${(product as any).priceNote}</blockquote>\n\n`
     : "";
+  const warrantyText = product.warranty?.trim()
+    ? `🛡️ <b>Chính sách bảo hành:</b>\n${product.warranty.trim()}\n\n`
+    : "";
 
   // Xóa tin nhắn danh mục cũ để thay thế bằng giao diện chi tiết sản phẩm
   await ctx.deleteMessage().catch(() => {});
@@ -627,6 +634,7 @@ bot.callbackQuery(/^prod:(\d+)$/, async (ctx) => {
     `• <b>Hình thức giao dịch:</b> Giao tài nguyên tự động tức thì 24/7\n\n` +
     priceNoteText +
     `📝 <b>Thông tin & Mô tả chi tiết:</b>\n${desc}\n\n` +
+    warrantyText +
     (stockCount > 0
       ? `Kính mời Quý khách lựa chọn nút bên dưới để tiến hành thanh toán:`
       : `<blockquote>⚠️ <i>Sản phẩm hiện đang tạm hết hàng. Quý khách vui lòng theo dõi thông báo hoặc liên hệ Admin để đặt trước.</i></blockquote>`);
@@ -1429,6 +1437,10 @@ bot.callbackQuery(/^pay_balance:(DH[A-F0-9]+)$/, async (ctx) => {
   await ctx.deleteMessage().catch(() => {});
 
   if (finalStatus === "PAID" && keysToDeliver.length > 0) {
+    const warrantyNotice = order.product?.warranty?.trim()
+      ? `<blockquote>⏱ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
+      : "";
+
     await ctx.reply(
       `🎉 <b>THANH TOÁN BẰNG SỐ DƯ VÍ THÀNH CÔNG!</b>\n\n` +
       `Đã trừ <b>${order.totalAmount.toLocaleString("vi-VN")} đ</b> từ ví của bạn.\n` +
@@ -1436,6 +1448,7 @@ bot.callbackQuery(/^pay_balance:(DH[A-F0-9]+)$/, async (ctx) => {
       `📦 <b>Sản phẩm:</b> ${order.product?.name} (x${qty})\n` +
       `🔑 <b>Tài nguyên bàn giao:</b>\n` +
       `<code>${keysToDeliver.map((k, i) => `#${i + 1}: ${k}`).join("\n")}</code>\n\n` +
+      warrantyNotice +
       `<blockquote>💡 <i>Chạm vào mã để sao chép. Xin trân trọng cảm ơn Quý khách!</i></blockquote>`,
       {
         parse_mode: "HTML",
@@ -1574,6 +1587,10 @@ bot.command("duyet", async (ctx) => {
   if (order.telegramId) {
     let customerMsg = "";
     if (finalStatus === "PAID" && keysToDeliver.length > 0) {
+      const warrantyNotice = order.product?.warranty?.trim()
+        ? `<blockquote>⏱ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
+        : "";
+
       customerMsg =
         `🎉 <b>ĐƠN HÀNG ĐÃ ĐƯỢC DUYỆT THÀNH CÔNG!</b>\n\n` +
         `Kính gửi Quý khách, đơn hàng <code>#${order.id}</code> của Quý khách đã được Admin kiểm tra và duyệt hoàn tất:\n\n` +
@@ -1582,6 +1599,7 @@ bot.command("duyet", async (ctx) => {
         `💰 <b>Số tiền:</b> ${order.totalAmount.toLocaleString("vi-VN")} đ\n\n` +
         `🔑 <b>Tài nguyên bàn giao:</b>\n` +
         `<code>${keysToDeliver.map((k, i) => `#${i + 1}: ${k}`).join("\n")}</code>\n\n` +
+        warrantyNotice +
         `<blockquote>💡 <i>Chạm vào mã để sao chép. Nếu cần hỗ trợ thêm, Quý khách vui lòng liên hệ Admin @rinq_hotro.</i></blockquote>`;
     } else {
       customerMsg =
