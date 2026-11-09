@@ -19,10 +19,13 @@ import {
   Bell,
   Gift,
 } from "lucide-react";
-import { Order, Stats } from "../types";
+import { Order, Stats, FlashSaleConfig } from "../types";
+import FlashSaleCard from "./FlashSaleCard";
 
 interface OverviewTabProps {
   stats: Stats;
+  flashSale?: FlashSaleConfig | null;
+  onRefreshData?: () => void;
   chartData: any;
   overviewChartFilter: "weekly" | "monthly";
   setOverviewChartFilter: (val: "weekly" | "monthly") => void;
@@ -41,6 +44,8 @@ interface OverviewTabProps {
 
 export default function OverviewTab({
   stats,
+  flashSale,
+  onRefreshData,
   chartData,
   overviewChartFilter,
   setOverviewChartFilter,
@@ -56,6 +61,9 @@ export default function OverviewTab({
 }: OverviewTabProps) {
   return (
     <div className="space-y-5 sm:space-y-6">
+      {/* FLASH SALE MANAGEMENT WIDGET */}
+      <FlashSaleCard initialFlashSale={flashSale} onRefreshData={onRefreshData} />
+
       {/* 4 MINI METRICS SUMMARY STRIP */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition-all hover:shadow-md hover:border-emerald-300 hover:-translate-y-0.5">

@@ -302,8 +302,9 @@ async function renderCatalog(ctx: any, deletePrevious = false) {
   const flashSale = await getActiveFlashSale();
   const flashSaleBanner = flashSale
     ? `🔥 <b>${flashSale.title.toUpperCase()} · GIẢM NGAY ${flashSale.discountPercent}%</b> 🔥\n` +
-      `⏱ <i>Ưu đãi kết thúc sau: ${formatRemainingTime(flashSale.expiresAt)}</i>\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
+      `⏱ <i>Ưu đãi kết thúc sau: ${formatRemainingTime(flashSale.expiresAt)}</i>` +
+      (flashSale.note ? `\n💬 <i>"${flashSale.note}"</i>` : "") +
+      `\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
     : "";
 
   const messageText =
@@ -1112,6 +1113,8 @@ bot.callbackQuery(/^skip_coupon:(\d+):(\d+)$/, async (ctx) => {
 });
 
 const pendingDepositUsers = new Set<string>();
+const adminFlashSaleDrafts = new Map<string, { discountPercent: number; hours: number; title: string }>();
+const adminWaitingFlashSaleNote = new Set<string>();
 
 // 14. Lắng nghe tin nhắn văn bản từ người dùng (nhập mã giảm giá hoặc số tiền nạp ví)
 bot.on("message:text", async (ctx, next) => {
@@ -1135,7 +1138,29 @@ bot.on("message:text", async (ctx, next) => {
   ) {
     checkoutStates.delete(telegramId);
     pendingDepositUsers.delete(telegramId);
+    adminWaitingFlashSaleNote.delete(telegramId);
     return next();
+  }
+
+  // Nếu Admin đang trong phiên nhập ghi chú cho Flash Sale
+  if (adminWaitingFlashSaleNote.has(telegramId)) {
+    adminWaitingFlashSaleNote.delete(telegramId);
+    const draft = adminFlashSaleDrafts.get(telegramId);
+    adminFlashSaleDrafts.delete(telegramId);
+
+    if (text.toLowerCase() === "huy" || text.toLowerCase() === "hủy") {
+      await ctx.reply("Đã hủy cấu hình Flash Sale.");
+      return;
+    }
+
+    if (!draft) {
+      await ctx.reply("Phiên cấu hình Flash Sale đã hết hạn. Vui lòng gõ lại lệnh.");
+      return;
+    }
+
+    const finalNote = (text.toLowerCase() === "bo qua" || text.toLowerCase() === "bỏ qua") ? null : text;
+    await launchFlashSaleAndNotify(ctx, draft.discountPercent, draft.hours, draft.title, finalNote);
+    return;
   }
 
   // Nếu người dùng đang chờ nhập số tiền nạp ví
@@ -2212,6 +2237,8 @@ bot.command("flashsale", async (ctx) => {
 
   if (subCmd === "off" || subCmd === "tat" || subCmd === "stop") {
     await stopFlashSale();
+    adminFlashSaleDrafts.delete(senderId);
+    adminWaitingFlashSaleNote.delete(senderId);
     await ctx.reply("🛑 <b>ĐÃ TẮT FLASH SALE THÀNH CÔNG!</b> Giá sản phẩm đã trở về bình thường.", {
       parse_mode: "HTML",
     });
@@ -2226,7 +2253,8 @@ bot.command("flashsale", async (ctx) => {
     const current = await getActiveFlashSale();
     let currentStatus = "Hiện không có Flash Sale nào đang bật.";
     if (current) {
-      currentStatus = `🔥 Đang bật: <b>${current.title}</b> · Giảm <b>${current.discountPercent}%</b> · Còn <i>${formatRemainingTime(current.expiresAt)}</i>`;
+      currentStatus = `🔥 Đang bật: <b>${current.title}</b> · Giảm <b>${current.discountPercent}%</b> · Còn <i>${formatRemainingTime(current.expiresAt)}</i>` +
+        (current.note ? `\n💬 Ghi chú: <i>"${current.note}"</i>` : "");
     }
 
     await ctx.reply(
@@ -2244,28 +2272,108 @@ bot.command("flashsale", async (ctx) => {
     return;
   }
 
-  const fsConfig = await startFlashSale(discountPercent, hours, customTitle);
+  // Lưu bản nháp cấu hình và hỏi Admin có muốn thêm nội dung ghi chú không
+  adminFlashSaleDrafts.set(senderId, { discountPercent, hours, title: customTitle });
+  adminWaitingFlashSaleNote.delete(senderId);
+
+  const promptKeyboard = new InlineKeyboard()
+    .text("✏️ Thêm ghi chú / Thông điệp", "fs_add_note")
+    .row()
+    .text("🚀 Bật ngay (Không cần ghi chú)", "fs_launch_now")
+    .row()
+    .text("❌ Hủy bỏ", "fs_cancel");
+
+  await ctx.reply(
+    `⚡ <b>XÁC NHẬN KÍCH HOẠT FLASH SALE</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `• Mức giảm giá: <b>${discountPercent}%</b>\n` +
+    `• Thời lượng: <b>${hours} giờ</b>\n` +
+    `• Tên sự kiện: <b>${customTitle}</b>\n\n` +
+    `❓ <b>Bạn có muốn thêm nội dung ghi chú / thông điệp gửi tới khách hàng không?</b>\n` +
+    `<i>(Thông điệp này sẽ xuất hiện trên banner danh mục và tin nhắn thông báo gửi tới toàn bộ khách hàng)</i>`,
+    { parse_mode: "HTML", reply_markup: promptKeyboard }
+  );
+});
+
+// Callbacks xử lý xác nhận ghi chú Flash Sale
+bot.callbackQuery("fs_launch_now", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  const senderId = String(ctx.from?.id);
+  const draft = adminFlashSaleDrafts.get(senderId);
+  adminFlashSaleDrafts.delete(senderId);
+  adminWaitingFlashSaleNote.delete(senderId);
+
+  if (!draft) {
+    await ctx.reply("Phiên cấu hình Flash Sale đã hết hạn. Vui lòng gõ lại lệnh.");
+    return;
+  }
+
+  await launchFlashSaleAndNotify(ctx, draft.discountPercent, draft.hours, draft.title, null);
+});
+
+bot.callbackQuery("fs_add_note", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  const senderId = String(ctx.from?.id);
+  const draft = adminFlashSaleDrafts.get(senderId);
+
+  if (!draft) {
+    await ctx.reply("Phiên cấu hình Flash Sale đã hết hạn. Vui lòng gõ lại lệnh.");
+    return;
+  }
+
+  adminWaitingFlashSaleNote.add(senderId);
+  await ctx.reply(
+    `✏️ <b>NHẬP NỘI DUNG GHI CHÚ / THÔNG ĐIỆP:</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `Quý khách vui lòng gửi tin nhắn nội dung thông điệp gửi tới khách hàng vào đây:\n\n` +
+    `• Ví dụ: <i>"Tri ân khách hàng cuối tuần, số lượng tài nguyên có hạn!"</i>\n\n` +
+    `<i>(Nhập 'bo qua' để kích hoạt không ghi chú, hoặc 'huy' để hủy)</i>`,
+    { parse_mode: "HTML" }
+  );
+});
+
+bot.callbackQuery("fs_cancel", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  const senderId = String(ctx.from?.id);
+  adminFlashSaleDrafts.delete(senderId);
+  adminWaitingFlashSaleNote.delete(senderId);
+  await ctx.reply("Đã hủy cấu hình Flash Sale.");
+});
+
+async function launchFlashSaleAndNotify(
+  ctx: any,
+  discountPercent: number,
+  hours: number,
+  title: string,
+  note: string | null
+) {
+  const fsConfig = await startFlashSale(discountPercent, hours, title, note);
+
+  const noteDisplay = note ? `• Ghi chú: <i>"${note}"</i>\n` : "";
 
   await ctx.reply(
     `🔥 <b>ĐÃ KÍCH HOẠT FLASH SALE THÀNH CÔNG!</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `• Sự kiện: <b>${fsConfig.title}</b>\n` +
     `• Mức giảm giá: <b>${fsConfig.discountPercent}%</b>\n` +
-    `• Thời hạn: <b>${hours} giờ</b> (Hết hạn lúc: ${new Date(fsConfig.expiresAt).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })})\n\n` +
-    `<i>Tất cả đơn giá trong danh mục bot đã tự động giảm theo tỷ lệ này!</i>`,
+    `• Thời hạn: <b>${hours} giờ</b> (Hết hạn lúc: ${new Date(fsConfig.expiresAt).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })})\n` +
+    noteDisplay +
+    `\n<i>Tất cả đơn giá trong danh mục bot đã tự động giảm theo tỷ lệ này!</i>`,
     { parse_mode: "HTML" }
   );
 
   // Tự động broadcast thông báo cho khách hàng
   try {
     const subscribers = await prisma.telegramUser.findMany({ select: { id: true } });
+    const noteBlock = note ? `\n\n📝 <b>Thông điệp từ Shop:</b>\n<i>${note}</i>` : "";
     const broadcastText =
       `🔥 <b>${fsConfig.title.toUpperCase()} · RINQ SHOP</b> 🔥\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `Kính gửi Quý khách, cửa hàng đang mở chương trình ưu đãi đặc biệt:\n\n` +
       `💥 Giảm ngay <b>${fsConfig.discountPercent}%</b> cho tất cả các gói dịch vụ!\n` +
-      `⏱ Áp dụng trong <b>${hours} giờ</b> tới.\n\n` +
-      `👉 Kính mời Quý khách bấm <b>🗂 Xem sản phẩm</b> để săn sale ngay!`;
+      `⏱ Áp dụng trong <b>${hours} giờ</b> tới (hết hạn: ${new Date(fsConfig.expiresAt).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}).` +
+      noteBlock +
+      `\n\n👉 Kính mời Quý khách bấm <b>🗂 Xem sản phẩm</b> để săn sale ngay!`;
 
     const broadcastKeyboard = new InlineKeyboard().text("🛒 Vào xem sản phẩm giảm giá", "menu_products");
 
@@ -2278,7 +2386,7 @@ bot.command("flashsale", async (ctx) => {
   } catch (err) {
     console.error("Lỗi broadcast flash sale:", err);
   }
-});
+}
 
 // Bắt lỗi toàn cục
 bot.catch((err) => {

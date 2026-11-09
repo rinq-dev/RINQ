@@ -24,6 +24,11 @@ import { notifyRestockSubscribers } from "@/lib/restock";
 import { COOKIE_NAME, isValidAdminSession } from "@/lib/admin-session";
 import { isBotOnline } from "@/lib/bot-status";
 import { getPaymentSettings } from "@/lib/app-settings";
+import {
+  getActiveFlashSale,
+  startFlashSale,
+  stopFlashSale,
+} from "@/lib/flash-sale";
 
 function isValidBroadcastUrl(value: unknown): value is string {
   if (typeof value !== "string" || value.length > 2048) return false;
@@ -256,6 +261,7 @@ export async function GET(req: NextRequest) {
         new Date(b.lastOrderAt || b.createdAt).getTime() - new Date(a.lastOrderAt || a.createdAt).getTime()
       ),
       supplier: supplierInfo,
+      flashSale: await getActiveFlashSale(),
       systemStatus: {
         botOnline,
         sepayConfigured: Boolean(process.env.SEPAY_API_KEY?.trim()),
@@ -288,6 +294,69 @@ async function executeAdminAction(body: any) {
   const { action } = body;
 
   switch (action) {
+      case "startFlashSale": {
+        const { discountPercent, durationHours, title, note, broadcastToBot } = body;
+        const pct = parseInt(String(discountPercent), 10);
+        const hrs = parseFloat(String(durationHours)) || 2;
+        const t = typeof title === "string" && title.trim() ? title.trim() : "⚡ GIỜ VÀNG FLASH SALE";
+        const n = typeof note === "string" && note.trim() ? note.trim() : null;
+
+        if (isNaN(pct) || pct <= 0 || pct > 90) {
+          return NextResponse.json({ error: "Mức giảm giá phải từ 1% đến 90%" }, { status: 400 });
+        }
+
+        const config = await startFlashSale(pct, hrs, t, n);
+
+        if (broadcastToBot !== false) {
+          try {
+            const subscribers = await prisma.telegramUser.findMany({ select: { id: true } });
+            const botToken = process.env.BOT_TOKEN;
+            if (botToken && subscribers.length > 0) {
+              const noteBlock = n ? `\n\n📝 <b>Thông điệp từ Shop:</b>\n<i>${n}</i>` : "";
+              const msg =
+                `🔥 <b>${config.title.toUpperCase()} · RINQ SHOP</b> 🔥\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+                `Kính gửi Quý khách, cửa hàng đang mở chương trình ưu đãi đặc biệt:\n\n` +
+                `💥 Giảm ngay <b>${config.discountPercent}%</b> cho tất cả các gói dịch vụ!\n` +
+                `⏱ Áp dụng trong <b>${hrs} giờ</b> tới (hết hạn: ${new Date(config.expiresAt).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}).` +
+                noteBlock +
+                `\n\n👉 Kính mời Quý khách bấm <b>🗂 Xem sản phẩm</b> để săn sale ngay!`;
+
+              const keyboard = {
+                inline_keyboard: [[{ text: "🛒 Săn sale ngay", callback_data: "menu_products" }]],
+              };
+
+              for (const sub of subscribers) {
+                fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    chat_id: sub.id,
+                    text: msg,
+                    parse_mode: "HTML",
+                    reply_markup: keyboard,
+                  }),
+                }).catch(() => {});
+              }
+            }
+          } catch (bcErr) {
+            console.error("Lỗi broadcast flash sale từ web:", bcErr);
+          }
+        }
+
+        return NextResponse.json({ success: true, flashSale: config });
+      }
+
+      case "stopFlashSale": {
+        await stopFlashSale();
+        return NextResponse.json({ success: true });
+      }
+
+      case "getFlashSale": {
+        const config = await getActiveFlashSale();
+        return NextResponse.json({ success: true, flashSale: config });
+      }
+
       case "RENAME_CATEGORY": {
         const oldName = typeof body.oldName === "string" ? body.oldName.trim() : "";
         const newName = typeof body.newName === "string" ? body.newName.trim() : "";

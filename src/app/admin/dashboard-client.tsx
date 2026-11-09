@@ -56,7 +56,7 @@ import {
   Image as ImageIcon,
   Settings,
 } from "lucide-react";
-import { Product, Order, Stats, Coupon, Giveaway, Customer } from "./types";
+import { Product, Order, Stats, Coupon, Giveaway, Customer, FlashSaleConfig } from "./types";
 import OverviewTab from "./components/OverviewTab";
 import ProductsTab from "./components/ProductsTab";
 import OrdersTab from "./components/OrdersTab";
@@ -157,6 +157,7 @@ export default function AdminPage() {
   // State thông tin nhà cung cấp API
   const [supplierInfo, setSupplierInfo] = useState<any>(null);
   const [systemStatus, setSystemStatus] = useState<any>(null);
+  const [flashSale, setFlashSale] = useState<FlashSaleConfig | null>(null);
   const [isCheckingSupplier, setIsCheckingSupplier] = useState(false);
   const [isSyncingSupplier, setIsSyncingSupplier] = useState(false);
 
@@ -465,6 +466,7 @@ export default function AdminPage() {
         setCustomers(data.customers || []);
         if (data.supplier) setSupplierInfo(data.supplier);
         if (data.systemStatus) setSystemStatus(data.systemStatus);
+        setFlashSale(data.flashSale || null);
         setStats(data.stats || {
           totalRevenue: 0,
           totalOrders: 0,
@@ -1640,6 +1642,8 @@ export default function AdminPage() {
                             {activeTab === "overview" && (
                 <OverviewTab
                   stats={stats}
+                  flashSale={flashSale}
+                  onRefreshData={fetchData}
                   chartData={chartData}
                   overviewChartFilter={overviewChartFilter}
                   setOverviewChartFilter={setOverviewChartFilter}

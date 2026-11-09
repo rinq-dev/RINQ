@@ -88,3 +88,11 @@ export interface Customer {
   source: "telegram" | "order";
 }
 
+export interface FlashSaleConfig {
+  active: boolean;
+  title: string;
+  discountPercent: number;
+  expiresAt: string;
+  note?: string | null;
+}
+

@@ -5,6 +5,7 @@ export interface FlashSaleConfig {
   title: string;
   discountPercent: number;
   expiresAt: string;
+  note?: string | null;
 }
 
 let cachedFlashSale: FlashSaleConfig | null = null;
@@ -40,7 +41,8 @@ export async function getActiveFlashSale(): Promise<FlashSaleConfig | null> {
 export async function startFlashSale(
   discountPercent: number,
   durationHours: number,
-  title = "⚡ GIỜ VÀNG FLASH SALE"
+  title = "⚡ GIỜ VÀNG FLASH SALE",
+  note?: string | null
 ): Promise<FlashSaleConfig> {
   const expiresAt = new Date(Date.now() + durationHours * 3600 * 1000).toISOString();
   const config: FlashSaleConfig = {
@@ -48,6 +50,7 @@ export async function startFlashSale(
     title,
     discountPercent: Math.max(1, Math.min(90, Math.round(discountPercent))),
     expiresAt,
+    note: note ? note.trim() : null,
   };
   cachedFlashSale = config;
 
