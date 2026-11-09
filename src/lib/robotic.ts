@@ -201,3 +201,81 @@ export async function createRoboticOrder(variantId: string, quantity: number, id
 export function roboticRetailPrice(sourcePrice: number, marginPercent: number) {
   return Math.ceil((sourcePrice * (1 + marginPercent / 100)) / 1000) * 1000;
 }
+
+export async function getRoboticProductDetail(productId: string) {
+  const cached = productDetailCache.get(productId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.detail;
+  }
+  const detail = await roboticRequest<any>(`/products/${encodeURIComponent(productId)}?locale=vi-VN`);
+  if (detail) {
+    productDetailCache.set(productId, { detail, expiresAt: Date.now() + 30 * 60 * 1000 });
+  }
+  return detail;
+}
+
+export async function getRoboticVariant(productId: string, variantId: string): Promise<RoboticProduct | null> {
+  const detail = await getRoboticProductDetail(productId);
+  if (!detail) return null;
+  const variant = Array.isArray(detail?.variants)
+    ? detail.variants.find((v: any) => String(v.id) === variantId)
+    : null;
+  if (!variant) return null;
+  const price = Number(variant?.prices?.vnd || 0);
+  const stock = Number(variant?.available_quantity || 0);
+  return {
+    id: String(productId),
+    variantId: String(variant.id),
+    name: `${detail.title} - ${variant.title || "Gói chuẩn"}`.trim(),
+    description: String(variant.description || detail.description || "").trim(),
+    category: String(detail.title || "RoboticVN").replace(/[^\p{L}\p{N}\s&-]/gu, "").trim() || "RoboticVN",
+    sourcePrice: price,
+    stock,
+    imported: false,
+    localProductId: null,
+    localActive: false,
+    localPrice: null,
+  };
+}
+
+export async function getRoboticProductsByKeys(keys: string[]): Promise<RoboticProduct[]> {
+  const productIds = [...new Set(keys.map((k) => k.split(":")[0]))];
+  const details = await Promise.all(
+    productIds.map(async (pid) => {
+      try {
+        return { pid, detail: await getRoboticProductDetail(pid) };
+      } catch {
+        return { pid, detail: null };
+      }
+    })
+  );
+  const detailMap = new Map(details.map((d) => [d.pid, d.detail]));
+  const results: RoboticProduct[] = [];
+
+  for (const key of keys) {
+    const [productId, variantId] = key.split(":");
+    const detail = detailMap.get(productId);
+    if (!detail) continue;
+    const variant = Array.isArray(detail?.variants)
+      ? detail.variants.find((v: any) => String(v.id) === variantId)
+      : null;
+    if (!variant) continue;
+    const price = Number(variant?.prices?.vnd || 0);
+    const stock = Number(variant?.available_quantity || 0);
+    results.push({
+      id: String(productId),
+      variantId: String(variant.id),
+      name: `${detail.title} - ${variant.title || "Gói chuẩn"}`.trim(),
+      description: String(variant.description || detail.description || "").trim(),
+      category: String(detail.title || "RoboticVN").replace(/[^\p{L}\p{N}\s&-]/gu, "").trim() || "RoboticVN",
+      sourcePrice: price,
+      stock,
+      imported: false,
+      localProductId: null,
+      localActive: false,
+      localPrice: null,
+    });
+  }
+
+  return results;
+}

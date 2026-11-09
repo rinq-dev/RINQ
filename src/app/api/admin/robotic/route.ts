@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { COOKIE_NAME, isValidAdminSession } from "@/lib/admin-session";
 import { encryptStock } from "@/lib/crypto";
-import { getRoboticCatalog, createRoboticOrder, roboticRetailPrice } from "@/lib/robotic";
+import { getRoboticCatalog, createRoboticOrder, roboticRetailPrice, getRoboticVariant, getRoboticProductsByKeys } from "@/lib/robotic";
 import { categorizeProductName } from "@/lib/categories";
 
 export const dynamic = "force-dynamic";
@@ -89,9 +89,9 @@ export async function POST(request: NextRequest) {
       const idempotencyKey = String(body.idempotencyKey || "");
       if (!sourceKey || !Number.isSafeInteger(targetProductId) || targetProductId < 1 || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 50 || !Number.isSafeInteger(maxTotalVnd) || maxTotalVnd < 1 || maxTotalVnd > 2_000_000 || !/^[a-f0-9-]{36}$/i.test(idempotencyKey)) return NextResponse.json({ error: "Sản phẩm, số lượng, hạn mức hoặc mã giao dịch không hợp lệ." }, { status: 400 });
       const [productId, variantId] = sourceKey.split(":");
-      const catalog = await getRoboticCatalog();
-      const source = catalog.products.find((item) => item.id === productId && item.variantId === variantId);
+      const source = await getRoboticVariant(productId, variantId);
       if (!source || source.stock < quantity) return NextResponse.json({ error: "Nguồn đã hết hàng hoặc không đủ tồn. Hãy tải lại danh mục." }, { status: 409 });
+      const catalog = await getRoboticCatalog({ offset: 0, limit: 1 });
       const estimatedTotal = source.sourcePrice * quantity;
       if (estimatedTotal > maxTotalVnd || catalog.account.balanceVnd < estimatedTotal) return NextResponse.json({ error: "Giá hoặc số dư ví RoboticVN không đủ theo hạn mức đã xác nhận." }, { status: 409 });
       const target = await prisma.product.findUnique({ where: { id: targetProductId }, select: { id: true, supplierVariantId: true } });
@@ -108,12 +108,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, imported: order.items.length, totalVnd: estimatedTotal, supplierOrderId: order.orderId, message: `${order.items.length} tài nguyên đã nhập kho.` });
       } catch (error) { await prisma.supplierPurchase.update({ where: { id: idempotencyKey }, data: { status: "FAILED" } }).catch(() => {}); throw error; }
     }
-    const ids = Array.isArray(body.productIds) ? [...new Set(body.productIds.map((id: unknown) => String(id).trim()))] : [];
+    const ids: string[] = Array.isArray(body.productIds) ? Array.from(new Set(body.productIds.map((id: unknown) => String(id).trim()))) : [];
     const marginById = body.marginById && typeof body.marginById === "object" ? body.marginById : {};
     if (!ids.length || ids.length > 100) return NextResponse.json({ error: "Chọn từ 1 đến 100 mặt hàng." }, { status: 400 });
-    const catalog = await getRoboticCatalog();
-    const selected = catalog.products.filter((item) => ids.includes(`${item.id}:${item.variantId}`));
-    if (selected.length !== ids.length) return NextResponse.json({ error: "Danh mục đã thay đổi. Tải lại danh sách trước khi nhập." }, { status: 409 });
+    const selected = await getRoboticProductsByKeys(ids);
+    if (selected.length !== ids.length) return NextResponse.json({ error: "Một số sản phẩm đã chọn không còn tồn tại trên RoboticVN. Vui lòng thử lại." }, { status: 409 });
     let imported = 0; let existing = 0;
     for (const source of selected) {
       const sourceKey = `ROBOTIC:${source.id}:${source.variantId}`;
