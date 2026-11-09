@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && node scripts/patch-prisma-wasm.js && next build --turbopack && node scripts/prepare-open-next.js",
+    "build": "prisma generate && next build --turbopack",
     "start": "next start",
     "bot": "node scripts/patch-prisma-wasm.js && tsx watch src/bot/index.ts",
     "bot:prod": "node scripts/patch-prisma-wasm.js && tsx src/bot/index.ts",
