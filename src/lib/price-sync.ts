@@ -52,8 +52,20 @@ async function sendAdminTelegramAlert(message: string): Promise<boolean> {
   }
 }
 
+// Cache tồn kho NCC: "productId:variantId" -> số lượng tồn
+const supplierStockCache = new Map<string, number>();
+
+export function getSupplierStock(supplierVariantId?: string | null): number | null {
+  if (!supplierVariantId) return null;
+  const key = supplierVariantId.startsWith("ROBOTIC:")
+    ? supplierVariantId.slice("ROBOTIC:".length)
+    : supplierVariantId;
+  if (!supplierStockCache.has(key)) return null;
+  return supplierStockCache.get(key) ?? null;
+}
+
 /**
- * Quét toàn bộ sản phẩm RoboticVN, tự động chốt giá bán lẻ mới và gửi thông báo
+ * Quét toàn bộ sản phẩm RoboticVN, tự động chốt giá bán lẻ mới, đồng bộ tồn kho và gửi thông báo
  */
 export async function syncRoboticPrices(options: {
   notifyAdmin?: boolean;
@@ -69,8 +81,19 @@ export async function syncRoboticPrices(options: {
 
     // Map sản phẩm RoboticVN theo key: "productId:variantId"
     const roboticMap = new Map(
-      catalog.products.map((p) => [`${p.id}:${p.variantId}`, p])
+      catalog.products.map((p) => {
+        const key = `${p.id}:${p.variantId}`;
+        return [key, p];
+      })
     );
+
+    // Cập nhật cache tồn kho và phát hiện về hàng / hết hàng
+    const prevStockMap = new Map(supplierStockCache);
+    for (const p of catalog.products) {
+      const key = `${p.id}:${p.variantId}`;
+      const stock = typeof p.stock === "number" ? p.stock : 0;
+      supplierStockCache.set(key, stock);
+    }
 
     // Lấy các sản phẩm trong database được liên kết với RoboticVN
     const localProducts = await prisma.product.findMany({
@@ -182,6 +205,42 @@ export async function syncRoboticPrices(options: {
             console.error("Lỗi broadcast giá giảm cho khách:", broadcastErr);
           }
         }
+      }
+    }
+
+    // 3. Thông báo biến động tồn kho NCC (Về hàng hoặc Hết hàng)
+    if (notifyAdmin && prevStockMap.size > 0) {
+      const restockedList: string[] = [];
+      const outOfStockList: string[] = [];
+
+      for (const prod of localProducts) {
+        if (!prod.supplierVariantId) continue;
+        const sourceKey = prod.supplierVariantId.slice("ROBOTIC:".length);
+        const oldStock = prevStockMap.get(sourceKey);
+        const newStock = supplierStockCache.get(sourceKey);
+
+        if (oldStock !== undefined && newStock !== undefined) {
+          if (oldStock === 0 && newStock > 0) {
+            restockedList.push(`• <b>${prod.name}</b>: kho vừa có lại <b>${newStock}</b> sản phẩm`);
+          } else if (oldStock > 0 && newStock === 0) {
+            outOfStockList.push(`• <b>${prod.name}</b>: nhà cung cấp vừa hết hàng`);
+          }
+        }
+      }
+
+      if (restockedList.length > 0) {
+        await sendAdminTelegramAlert(
+          `🟢 <b>[NCC VỪA VỀ HÀNG · ROBOTIC]</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          restockedList.join("\n") +
+          `\n\n<i>Bot đã tự động kích hoạt lại trạng thái sẵn hàng cho khách mua.</i>`
+        );
+      }
+      if (outOfStockList.length > 0) {
+        await sendAdminTelegramAlert(
+          `🔴 <b>[NCC VỪA HẾT HÀNG · ROBOTIC]</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          outOfStockList.join("\n") +
+          `\n\n<i>Bot đã tự động chuyển sang tạm hết hàng để bảo vệ giao dịch.</i>`
+        );
       }
     }
 

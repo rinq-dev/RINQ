@@ -11,6 +11,7 @@ const botRuntimeLibraries = [
   "categories.ts",
   "crypto.ts",
   "customer-auth.ts",
+  "flash-sale.ts",
   "notifier.ts",
   "order-policy.ts",
   "price-sync.ts",

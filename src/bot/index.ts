@@ -15,7 +15,14 @@ import { decryptStock, encryptStock } from "../lib/crypto";
 import { verifyWebAuthSession } from "../lib/web-auth";
 import { recordBotHeartbeat, stopBotHeartbeat } from "../lib/bot-status";
 import { getCategoryIcon, getCategoryPriority } from "../lib/categories";
-import { syncRoboticPrices } from "../lib/price-sync";
+import { syncRoboticPrices, getSupplierStock } from "../lib/price-sync";
+import {
+  getActiveFlashSale,
+  startFlashSale,
+  stopFlashSale,
+  calculateFlashSalePrice,
+  formatRemainingTime,
+} from "../lib/flash-sale";
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 if (!BOT_TOKEN) {
@@ -108,7 +115,7 @@ async function generateOrderId(): Promise<string> {
   throw new Error("Không thể tạo mã đơn hàng duy nhất");
 }
 
-// Helper: Tính số lượng tồn kho khả dụng (bao gồm kết nối NCC API ẩn với khách)
+// Helper: Tính số lượng tồn kho khả dụng (bao gồm kết nối NCC API ẩn với khách & kiểm tra tồn kho NCC)
 export function getProductStockCount(p: any): number {
   if (!p) return 0;
   const manualCount = Array.isArray(p.stocks) ? p.stocks.length : (p.stockAvailable ?? 0);
@@ -120,13 +127,22 @@ export function getProductStockCount(p: any): number {
     return manualCount;
   }
 
-  // Nếu là thuần API
-  if (fulfillmentType === "API") {
-    return 99;
+  const sStock = getSupplierStock(supplierVariantId);
+
+  // Nếu nhà cung cấp đã được quét và hết hàng (sStock === 0)
+  if (sStock !== null && sStock <= 0) {
+    return manualCount; // Chỉ cho phép mua nếu còn kho thủ công
   }
 
-  // Chế độ HYBRID: Nếu còn kho thủ công thì tính theo kho thủ công, nếu hết kho thủ công thì còn sẵn 99 từ API
-  return manualCount > 0 ? manualCount : 99;
+  const apiCount = sStock !== null ? Math.min(99, sStock) : 99;
+
+  // Nếu là thuần API
+  if (fulfillmentType === "API") {
+    return apiCount;
+  }
+
+  // Chế độ HYBRID: Nếu còn kho thủ công thì tính theo kho thủ công, nếu hết kho thủ công thì lấy tồn kho API
+  return manualCount > 0 ? manualCount : apiCount;
 }
 
 // Helper: Tải danh sách sản phẩm kèm cấu hình NCC từ SQLite
@@ -283,7 +299,15 @@ async function renderCatalog(ctx: any, deletePrevious = false) {
     timeZone: "Asia/Ho_Chi_Minh",
   });
 
+  const flashSale = await getActiveFlashSale();
+  const flashSaleBanner = flashSale
+    ? `🔥 <b>${flashSale.title.toUpperCase()} · GIẢM NGAY ${flashSale.discountPercent}%</b> 🔥\n` +
+      `⏱ <i>Ưu đãi kết thúc sau: ${formatRemainingTime(flashSale.expiresAt)}</i>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
+    : "";
+
   const messageText =
+    flashSaleBanner +
     `❖ <b>RINQ SHOP · DANH MỤC DỊCH VỤ CAO CẤP</b> ❖\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `Hệ thống hiện cung cấp <b>${categoriesMap.size}</b> danh mục chính với <b>${totalProducts}</b> loại dịch vụ:\n` +
@@ -346,6 +370,8 @@ async function renderCategoryProducts(ctx: any, categoryName: string, deletePrev
     return;
   }
 
+  const flashSale = await getActiveFlashSale();
+
   products.forEach((p) => {
     const count = getProductStockCount(p);
     const stockBadge =
@@ -354,7 +380,13 @@ async function renderCategoryProducts(ctx: any, categoryName: string, deletePrev
           ? `🟢 Còn ${count}`
           : "🟢 Sẵn hàng"
         : "🔴 Hết hàng";
-    const label = `🔹 ${p.name} · ${p.price.toLocaleString("vi-VN")}đ · ${stockBadge}`;
+    const effectivePrice = flashSale
+      ? calculateFlashSalePrice(p.price, flashSale.discountPercent)
+      : p.price;
+    const priceStr = flashSale
+      ? `🔥 ${effectivePrice.toLocaleString("vi-VN")}đ`
+      : `${p.price.toLocaleString("vi-VN")}đ`;
+    const label = `🔹 ${p.name} · ${priceStr} · ${stockBadge}`;
     inlineKeyboard.text(label, `prod:${p.id}`).row();
   });
 
@@ -629,10 +661,19 @@ bot.callbackQuery(/^prod:(\d+)$/, async (ctx) => {
         : `🟢 Sẵn hàng (Giao tức thì 24/7)`
       : "🔴 Tạm hết hàng";
 
+  const flashSale = await getActiveFlashSale();
+  const effectivePrice = flashSale
+    ? calculateFlashSalePrice(product.price, flashSale.discountPercent)
+    : product.price;
+
+  const priceLine = flashSale
+    ? `• <b>Đơn giá:</b> <s>${formatVND(product.price)}</s> ➔ <b>${formatVND(effectivePrice)}</b> 🔥 <i>(-${flashSale.discountPercent}% Flash Sale)</i>\n`
+    : `• <b>Đơn giá:</b> <b>${formatVND(product.price)}</b> / sản phẩm\n`;
+
   const text =
     `❖ <b>${product.name.toUpperCase()}</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `• <b>Đơn giá:</b> <b>${formatVND(product.price)}</b> / sản phẩm\n` +
+    priceLine +
     `• <b>Tình trạng:</b> ${stockStatusStr}\n` +
     `• <b>Hình thức giao dịch:</b> Giao tài nguyên tự động tức thì 24/7\n\n` +
     priceNoteText +
@@ -695,6 +736,11 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
   const telegramId = String(ctx.from?.id);
   const username = ctx.from?.username || null;
 
+  const flashSale = await getActiveFlashSale();
+  const finalPrice = flashSale
+    ? calculateFlashSalePrice(product.price, flashSale.discountPercent)
+    : product.price;
+
   // Tạo đơn hàng ở trạng thái PENDING
   await prisma.order.create({
     data: {
@@ -702,7 +748,7 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
       telegramId,
       username,
       productId: product.id,
-      totalAmount: product.price,
+      totalAmount: finalPrice,
       status: "PENDING",
     },
   });
@@ -715,17 +761,22 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
   const qrBuffer = await fetchQRCodeBuffer(
     BANK_ID,
     BANK_ACCOUNT_NO,
-    product.price,
+    finalPrice,
     orderId,
     BANK_ACCOUNT_NAME
   );
+
+  const discountNote = flashSale
+    ? `• <b>Ưu đãi Flash Sale:</b> Giảm -${flashSale.discountPercent}%\n`
+    : "";
 
   const paymentText =
     `🧾 <b>HÓA ĐƠN ĐẶT HÀNG:</b> <code>${orderId}</code>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `• <b>Sản phẩm:</b> <b>${product.name}</b>\n` +
     `• <b>Số lượng:</b> <b>1 sản phẩm</b>\n` +
-    `• <b>Tổng thanh toán:</b> <b>${formatVND(product.price)}</b>\n\n` +
+    discountNote +
+    `• <b>Tổng thanh toán:</b> <b>${formatVND(finalPrice)}</b>\n\n` +
     `🏦 <b>THÔNG TIN CHUYỂN KHOẢN TỰ ĐỘNG:</b>\n` +
     `• Ngân hàng: <b>${BANK_ID}</b>\n` +
     `• Số tài khoản: <code>${BANK_ACCOUNT_NO}</code>\n` +
@@ -1060,7 +1111,9 @@ bot.callbackQuery(/^skip_coupon:(\d+):(\d+)$/, async (ctx) => {
   }
 });
 
-// 14. Lắng nghe tin nhắn văn bản từ người dùng (nhập mã giảm giá)
+const pendingDepositUsers = new Set<string>();
+
+// 14. Lắng nghe tin nhắn văn bản từ người dùng (nhập mã giảm giá hoặc số tiền nạp ví)
 bot.on("message:text", async (ctx, next) => {
   const telegramId = String(ctx.from?.id);
   const state = checkoutStates.get(telegramId);
@@ -1072,6 +1125,7 @@ bot.on("message:text", async (ctx, next) => {
     [
       "🗂 Xem sản phẩm",
       "📦 Đơn hàng của tôi",
+      "💳 Ví & Số dư",
       "🎁 Giveaway",
       "❓ Hướng dẫn mua",
       "❓ Cách mua",
@@ -1080,7 +1134,28 @@ bot.on("message:text", async (ctx, next) => {
     ].includes(text)
   ) {
     checkoutStates.delete(telegramId);
+    pendingDepositUsers.delete(telegramId);
     return next();
+  }
+
+  // Nếu người dùng đang chờ nhập số tiền nạp ví
+  if (pendingDepositUsers.has(telegramId)) {
+    if (text.toLowerCase() === "huy" || text.toLowerCase() === "hủy" || text === "0") {
+      pendingDepositUsers.delete(telegramId);
+      await ctx.reply("Đã hủy nạp tiền ví.");
+      return;
+    }
+    const amount = parseMoneyInput(text);
+    if (!amount || isNaN(amount) || amount < 10000) {
+      await ctx.reply(
+        "⚠️ Số tiền không hợp lệ. Số tiền nạp tối thiểu là <b>10.000 đ</b> (ví dụ: <code>50k</code> hoặc <code>50000</code>). Gửi <code>huy</code> để hủy.",
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+    pendingDepositUsers.delete(telegramId);
+    await handleDepositRequest(ctx, amount);
+    return;
   }
 
   // Nếu người dùng đang trong phiên chờ nhập mã giảm giá
@@ -1461,6 +1536,31 @@ bot.callbackQuery(/^pay_balance:(DH[A-F0-9]+)$/, async (ctx) => {
           .url("💬 Hỗ trợ Admin (@rinq_hotro)", "https://t.me/rinq_hotro"),
       }
     );
+
+    if (ADMIN_TELEGRAM_ID) {
+      const adminWalletMsg =
+        `🔔 <b>[ĐƠN HÀNG MỚI · THANH TOÁN SỐ DƯ VÍ]</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🧾 <b>Mã đơn:</b> <code>#${order.id}</code>\n` +
+        `👤 <b>Khách hàng:</b> <b>${order.username ? `@${order.username}` : telegramId}</b> (<code>${telegramId}</code>)\n` +
+        `📦 <b>Sản phẩm:</b> <b>${order.product?.name}</b> (x${qty})\n` +
+        `💰 <b>Trừ ví:</b> <b>${order.totalAmount.toLocaleString("vi-VN")} đ</b>\n` +
+        `💳 <b>Số dư ví còn lại:</b> <b>${(currentBalance - order.totalAmount).toLocaleString("vi-VN")} đ</b>\n` +
+        `🕒 <b>Thời gian:</b> ${new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}`;
+
+      bot.api.sendMessage(ADMIN_TELEGRAM_ID, adminWalletMsg, {
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              order.username
+                ? { text: `💬 Nhắn @${order.username}`, url: `https://t.me/${order.username}` }
+                : { text: "💬 Nhắn khách hàng", url: `tg://user?id=${telegramId}` },
+            ],
+          ],
+        },
+      }).catch(() => {});
+    }
   } else {
     await ctx.reply(
       `✅ <b>ĐÃ THANH TOÁN BẰNG SỐ DƯ VÍ!</b>\n\n` +
@@ -1848,15 +1948,17 @@ async function renderWallet(ctx: any, deletePrevious = false, editInPlace = fals
     `Nạp nhanh bằng nút bên dưới hoặc gửi /nap 100000. Nạp ví không tự thanh toán đơn đang chờ.`;
 
   const walletKeyboard = new InlineKeyboard()
+    .text("Nạp 20.000đ", "nap:20000")
     .text("Nạp 50.000đ", "nap:50000")
     .text("Nạp 100.000đ", "nap:100000")
     .row()
     .text("Nạp 200.000đ", "nap:200000")
-    .text("Nhập số tiền khác", "nap_custom")
+    .text("Nạp 500.000đ", "nap:500000")
     .row()
+    .text("✏️ Nhập số tiền khác", "nap_custom")
     .text("⚡ Làm mới số dư", "refresh_wallet")
     .row()
-    .text("🏧 Mua hàng", "menu_products");
+    .text("🛒 Xem sản phẩm", "menu_products");
 
   if (editInPlace && ctx.callbackQuery?.message) {
     try {
@@ -1986,15 +2088,14 @@ bot.callbackQuery(/^nap:(\d+)$/, async (ctx) => {
 
 bot.callbackQuery("nap_custom", async (ctx) => {
   await ctx.answerCallbackQuery().catch(() => {});
+  const telegramId = String(ctx.from?.id);
+  pendingDepositUsers.add(telegramId);
   await ctx.reply(
-    `💰 <b>HƯỚNG DẪN NẠP TIỀN TÙY CHỌN:</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `Quý khách vui lòng gửi lệnh theo cú pháp:\n` +
-    `👉 <code>/nap &lt;số_tiền&gt;</code>\n\n` +
-    `<b>Ví dụ:</b>\n` +
-    `• <code>/nap 30000</code> <i>(Nạp 30.000đ)</i>\n` +
-    `• <code>/nap 150000</code> hoặc <code>/nap 150k</code> <i>(Nạp 150.000đ)</i>\n` +
-    `• <code>/nap 500k</code> <i>(Nạp 500.000đ)</i>\n\n` +
-    `<i>Lưu ý: Hạn mức nạp tối thiểu là 10.000đ.</i>`,
+    `✏️ <b>NẠP TIỀN VÍ TỰ CHỌN:</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `Quý khách chỉ cần <b>gõ số tiền và gửi trực tiếp vào khung chat</b> này:\n\n` +
+    `• Ví dụ: <code>30000</code> hoặc <code>30k</code>\n` +
+    `• Ví dụ: <code>150k</code> hoặc <code>500000</code>\n\n` +
+    `<i>(Số tiền nạp tối thiểu là 10.000đ. Nhập 0 hoặc 'huy' để hủy)</i>`,
     { parse_mode: "HTML" }
   );
 });
@@ -2095,6 +2196,87 @@ bot.command(["syncprice", "capnhatgia"], async (ctx) => {
     );
   } catch (err: any) {
     await ctx.reply(`❌ Lỗi: ${err.message || err}`);
+  }
+});
+
+// Lệnh Flash Sale dành riêng cho Admin: /flashsale <discount%> <hours> [tên sự kiện]
+bot.command("flashsale", async (ctx) => {
+  const senderId = String(ctx.from?.id || "");
+  if (senderId !== ADMIN_TELEGRAM_ID.trim()) {
+    await ctx.reply("⛔ Lệnh này chỉ dành cho Quản trị viên.");
+    return;
+  }
+
+  const args = (ctx.match || "").trim().split(/\s+/).filter(Boolean);
+  const subCmd = (args[0] || "").toLowerCase();
+
+  if (subCmd === "off" || subCmd === "tat" || subCmd === "stop") {
+    await stopFlashSale();
+    await ctx.reply("🛑 <b>ĐÃ TẮT FLASH SALE THÀNH CÔNG!</b> Giá sản phẩm đã trở về bình thường.", {
+      parse_mode: "HTML",
+    });
+    return;
+  }
+
+  const discountPercent = parseInt(args[0], 10);
+  const hours = parseFloat(args[1]) || 2;
+  const customTitle = args.slice(2).join(" ") || "⚡ GIỜ VÀNG FLASH SALE";
+
+  if (isNaN(discountPercent) || discountPercent <= 0 || discountPercent > 90) {
+    const current = await getActiveFlashSale();
+    let currentStatus = "Hiện không có Flash Sale nào đang bật.";
+    if (current) {
+      currentStatus = `🔥 Đang bật: <b>${current.title}</b> · Giảm <b>${current.discountPercent}%</b> · Còn <i>${formatRemainingTime(current.expiresAt)}</i>`;
+    }
+
+    await ctx.reply(
+      `⚡ <b>QUẢN LÝ FLASH SALE · RINQ SHOP</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `${currentStatus}\n\n` +
+      `📌 <b>Cú pháp kích hoạt:</b>\n` +
+      `• <code>/flashsale &lt;%_giảm&gt; &lt;số_giờ&gt; [tên_sự_kiện]</code>\n` +
+      `• Ví dụ: <code>/flashsale 20 2</code> (Giảm 20% trong 2 giờ)\n` +
+      `• Ví dụ: <code>/flashsale 30 1 Giờ Vàng Đêm Khuya</code> (Giảm 30% trong 1 giờ)\n\n` +
+      `📌 <b>Cú pháp tắt sớm:</b>\n` +
+      `• <code>/flashsale off</code>`,
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  const fsConfig = await startFlashSale(discountPercent, hours, customTitle);
+
+  await ctx.reply(
+    `🔥 <b>ĐÃ KÍCH HOẠT FLASH SALE THÀNH CÔNG!</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `• Sự kiện: <b>${fsConfig.title}</b>\n` +
+    `• Mức giảm giá: <b>${fsConfig.discountPercent}%</b>\n` +
+    `• Thời hạn: <b>${hours} giờ</b> (Hết hạn lúc: ${new Date(fsConfig.expiresAt).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })})\n\n` +
+    `<i>Tất cả đơn giá trong danh mục bot đã tự động giảm theo tỷ lệ này!</i>`,
+    { parse_mode: "HTML" }
+  );
+
+  // Tự động broadcast thông báo cho khách hàng
+  try {
+    const subscribers = await prisma.telegramUser.findMany({ select: { id: true } });
+    const broadcastText =
+      `🔥 <b>${fsConfig.title.toUpperCase()} · RINQ SHOP</b> 🔥\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `Kính gửi Quý khách, cửa hàng đang mở chương trình ưu đãi đặc biệt:\n\n` +
+      `💥 Giảm ngay <b>${fsConfig.discountPercent}%</b> cho tất cả các gói dịch vụ!\n` +
+      `⏱ Áp dụng trong <b>${hours} giờ</b> tới.\n\n` +
+      `👉 Kính mời Quý khách bấm <b>🗂 Xem sản phẩm</b> để săn sale ngay!`;
+
+    const broadcastKeyboard = new InlineKeyboard().text("🛒 Vào xem sản phẩm giảm giá", "menu_products");
+
+    for (const sub of subscribers) {
+      bot.api.sendMessage(sub.id, broadcastText, {
+        parse_mode: "HTML",
+        reply_markup: broadcastKeyboard,
+      }).catch(() => {});
+    }
+  } catch (err) {
+    console.error("Lỗi broadcast flash sale:", err);
   }
 });
 

@@ -520,6 +520,42 @@ export async function POST(req: NextRequest) {
       } catch (tgError) {
         console.error("Lỗi gửi tin nhắn Telegram:", tgError);
       }
+
+      // Báo đơn hàng mới cho Admin Telegram thời gian thực
+      const adminId = process.env.ADMIN_TELEGRAM_ID;
+      if (adminId && botToken) {
+        const adminAlertMsg =
+          `🔔 <b>[ĐƠN HÀNG MỚI THÀNH CÔNG · VIETQR SEPAY]</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `🧾 <b>Mã đơn:</b> <code>#${result.order.id}</code>\n` +
+          `👤 <b>Khách hàng:</b> <b>${order.username ? `@${order.username}` : (result.order.telegramId || "Khách vãng lai")}</b> (<code>${result.order.telegramId || "N/A"}</code>)\n` +
+          `📦 <b>Sản phẩm:</b> <b>${order.product.name}</b> (x${result.stocks.length})\n` +
+          `💰 <b>Doanh thu:</b> <b>+${order.totalAmount.toLocaleString("vi-VN")} đ</b>\n` +
+          `🕒 <b>Thời gian:</b> ${new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}`;
+
+        const adminKeyboard = result.order.telegramId
+          ? {
+              inline_keyboard: [
+                [
+                  order.username
+                    ? { text: `💬 Nhắn @${order.username}`, url: `https://t.me/${order.username}` }
+                    : { text: "💬 Nhắn khách hàng", url: `tg://user?id=${result.order.telegramId}` },
+                ],
+              ],
+            }
+          : undefined;
+
+        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: adminId.trim(),
+            text: adminAlertMsg,
+            parse_mode: "HTML",
+            reply_markup: adminKeyboard,
+          }),
+        }).catch(() => {});
+      }
     }
 
     return NextResponse.json({
