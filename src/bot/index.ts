@@ -281,7 +281,8 @@ async function renderCatalog(ctx: any, deletePrevious = false, page = 1) {
     `Hệ thống hiện có <b>${categoriesMap.size}</b> danh mục với <b>${totalProducts}</b> gói sản phẩm:\n` +
     `• Tình trạng: 🟢 <b>${inStockCount}</b> sẵn có  |  🔴 <b>${outOfStockCount}</b> tạm hết\n` +
     `• Trạng thái hệ thống: <b>Trực tuyến 24/7</b>\n\n` +
-    `Kính mời Quý khách bấm chọn <b>Danh mục</b> bên dưới để xem chi tiết các loại gói dịch vụ:` +
+    `💡 <i>Muốn tìm sản phẩm nào, Quý khách cứ <b>gõ trực tiếp tên sản phẩm vào khung chat</b> (Ví dụ: <code>gemini</code>, <code>canva</code>, <code>capcut</code>...).</i>\n\n` +
+    `Kính mời Quý khách bấm chọn <b>Danh mục</b> bên dưới để xem chi tiết:` +
     `\n\n<blockquote>⏱ <i>Thời gian đồng bộ: ${timeStr} · ${dateStr} (Giờ Việt Nam)</i></blockquote>`;
 
   if (!deletePrevious && ctx.callbackQuery?.message) {
@@ -300,6 +301,95 @@ async function renderCatalog(ctx: any, deletePrevious = false, page = 1) {
     parse_mode: "HTML",
     reply_markup: inlineKeyboard,
   });
+}
+
+// Helper: Chuẩn hóa chuỗi tiếng Việt không dấu để tìm kiếm thông minh
+function removeVietnameseTones(str: string): string {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "d")
+    .toLowerCase()
+    .trim();
+}
+
+// Helper: Tìm kiếm sản phẩm theo từ khóa (gõ trực tiếp tên sản phẩm hoặc qua lệnh /tim)
+async function handleSearchProducts(ctx: any, query: string) {
+  const rawQ = query.trim();
+  const q = removeVietnameseTones(rawQ);
+  if (!q) {
+    await ctx.reply(
+      "💡 Vui lòng nhập tên sản phẩm cần tìm (Ví dụ: <code>gemini</code>, <code>canva</code>, <code>capcut</code>...).",
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  const allProducts = await fetchProductsWithSupplierMeta({ isActive: true });
+  const matched = allProducts.filter((p: any) => {
+    const normName = removeVietnameseTones(p.name || "");
+    const normCat = removeVietnameseTones(p.category || "");
+    const normDesc = removeVietnameseTones(p.description || "");
+    const normWarranty = removeVietnameseTones(p.warranty || "");
+    return (
+      normName.includes(q) ||
+      normCat.includes(q) ||
+      normDesc.includes(q) ||
+      normWarranty.includes(q)
+    );
+  });
+
+  const flashSale = await getActiveFlashSale();
+  const inlineKeyboard = new InlineKeyboard();
+
+  if (matched.length === 0) {
+    inlineKeyboard
+      .text("🗂 Xem tất cả danh mục", "menu_products")
+      .row()
+      .url(`💬 Nhờ Admin tìm giúp (@${SUPPORT_USERNAME})`, `https://t.me/${SUPPORT_USERNAME}`);
+
+    await ctx.reply(
+      `🔍 <b>TÌM KIẾM SẢN PHẨM:</b> "<code>${rawQ}</code>"\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `❌ Tiếc quá, không tìm thấy sản phẩm nào khớp với từ khóa "<b>${rawQ}</b>".\n\n` +
+      `💡 <i>Quý khách thử tìm từ ngắn hơn (Ví dụ: <code>gemini</code>, <code>canva</code>, <code>capcut</code>, <code>chatgpt</code>...) hoặc bấm nút bên dưới để xem toàn bộ danh mục:</i>`,
+      { parse_mode: "HTML", reply_markup: inlineKeyboard }
+    );
+    return;
+  }
+
+  matched.slice(0, 18).forEach((p: any) => {
+    const count = getProductStockCount(p);
+    const stockBadge =
+      count > 0
+        ? p.stocks?.length > 0
+          ? `🟢 Còn ${count}`
+          : "🟢 Sẵn hàng"
+        : "🔴 Tạm hết";
+    const effectivePrice = flashSale
+      ? calculateFlashSalePrice(p.price, flashSale.discountPercent)
+      : p.price;
+    const priceStr = flashSale
+      ? `🔥 ${effectivePrice.toLocaleString("vi-VN")}đ`
+      : `${p.price.toLocaleString("vi-VN")}đ`;
+    const label = `🔹 ${p.name} · ${priceStr} · ${stockBadge}`;
+    inlineKeyboard.text(label, `prod:${p.id}`).row();
+  });
+
+  if (matched.length > 18) {
+    inlineKeyboard.text(`... và còn ${matched.length - 18} sản phẩm khác (Xem tất cả)`, "cat:ALL").row();
+  }
+
+  inlineKeyboard.text("🔙 Về danh mục chính", "menu_products").row();
+
+  await ctx.reply(
+    `🔍 <b>KẾT QUẢ TÌM KIẾM CHO:</b> "<code>${rawQ}</code>"\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `Tìm thấy <b>${matched.length}</b> sản phẩm phù hợp.\n` +
+    `<i>Kính mời Quý khách bấm vào sản phẩm bên dưới để xem chi tiết & đặt mua:</i>`,
+    { parse_mode: "HTML", reply_markup: inlineKeyboard }
+  );
 }
 
 // Helper: Hiển thị các loại sản phẩm bên trong một Danh Mục (Tier 2: Products in Category)
@@ -1101,6 +1191,12 @@ bot.on("message:text", async (ctx, next) => {
       "🗂 Xem sản phẩm",
       "📦 Đơn hàng của tôi",
       "💳 Ví & Số dư",
+      "Ví & Số dư",
+      "💳 Ví của tôi",
+      "Ví của tôi",
+      "Số dư ví",
+      "Ví",
+      "Nạp tiền",
       "🎁 Giveaway",
       "❓ Hướng dẫn mua",
       "❓ Cách mua",
@@ -1280,7 +1376,21 @@ bot.on("message:text", async (ctx, next) => {
     return;
   }
 
-  return next();
+  // 14b. Tự động tìm kiếm sản phẩm nếu người dùng gõ tin nhắn văn bản tự do
+  await handleSearchProducts(ctx, text);
+});
+
+// Lệnh tìm kiếm nhanh: /tim [tên sản phẩm] hoặc /search [tên sản phẩm]
+bot.command(["tim", "search"], async (ctx) => {
+  const query = ctx.message?.text?.replace(/^\/(tim|search)(@\w+)?/i, "").trim() || "";
+  if (!query) {
+    await ctx.reply(
+      "💡 Cú pháp: <code>/tim [tên sản phẩm]</code>\nVí dụ: <code>/tim gemini</code> hoặc gõ trực tiếp chữ <code>gemini</code> vào khung chat.",
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+  await handleSearchProducts(ctx, query);
 });
 
 // 15. Command /buy [productId] [couponCode] (Dành cho người thích gõ lệnh nhanh)
@@ -2366,6 +2476,7 @@ async function registerBotCommands() {
     await bot.api.setMyCommands([
       { command: "start", description: "🛍️ Mở cửa hàng RINQ SHOP" },
       { command: "menu", description: "🛒 Danh mục sản phẩm & tồn kho" },
+      { command: "tim", description: "🔍 Tìm sản phẩm theo tên" },
       { command: "orders", description: "📦 Lịch sử đơn hàng của tôi" },
       { command: "vi", description: "💳 Xem ví & số dư" },
       { command: "nap", description: "💰 Nạp tiền vào ví" },
