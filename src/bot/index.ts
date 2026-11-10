@@ -32,6 +32,7 @@ if (!BOT_TOKEN) {
 }
 
 const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || "8907169582";
+const SUPPORT_USERNAME = (process.env.SUPPORT_USERNAME || "rinq_hotro").replace(/^@/, "");
 
 const bot = new Bot(BOT_TOKEN);
 
@@ -190,7 +191,7 @@ async function renderCatalog(ctx: any, deletePrevious = false, page = 1) {
     const emptyKeyboard = new InlineKeyboard()
       .text("🔄 Làm mới danh mục", "refresh_catalog")
       .row()
-      .text("💬 Hỗ trợ trực tuyến (@zophim)", "inline_support");
+      .text(`💬 Hỗ trợ trực tuyến (@${SUPPORT_USERNAME})`, "inline_support");
     await ctx.reply(emptyText, { parse_mode: "HTML", reply_markup: emptyKeyboard });
     return;
   }
@@ -506,7 +507,7 @@ async function handleShowGuide(ctx: any) {
 
 async function handleShowSupport(ctx: any) {
   const keyboard = new InlineKeyboard()
-    .url("💬 Trò chuyện cùng Admin @zophim", "https://t.me/zophim")
+    .url(`💬 Trò chuyện cùng Admin @${SUPPORT_USERNAME}`, `https://t.me/${SUPPORT_USERNAME}`)
     .row()
     .text("🔙 Về danh mục sản phẩm", "menu_products");
 
@@ -514,7 +515,7 @@ async function handleShowSupport(ctx: any) {
     `💬 <b>TRUNG TÂM CHĂM SÓC KHÁCH HÀNG · RINQ SHOP</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `Kính chào Quý khách, đội ngũ RINQ SHOP luôn sẵn sàng lắng nghe và giải đáp mọi yêu cầu của Quý khách:\n\n` +
-    `• <b>Admin phụ trách:</b> <b>@zophim</b>\n` +
+    `• <b>Admin phụ trách:</b> <b>@${SUPPORT_USERNAME}</b>\n` +
     `• <b>Thời gian phản hồi:</b> Thường trực 24/7\n` +
     `• <b>Phạm vi hỗ trợ:</b> Tư vấn sản phẩm, bảo hành tài khoản, xử lý đơn hàng và nạp tài nguyên.\n\n` +
     `Kính mời Quý khách bấm nút <b>💬 Trò chuyện cùng Admin</b> bên dưới để kết nối trực tiếp:`,
@@ -824,12 +825,12 @@ bot.callbackQuery("inline_my_orders", async (ctx) => {
   await showUserOrders(ctx, true);
 });
 
-// 9. Callback Query: Hỗ trợ trỏ tới @zophim
+// 9. Callback Query: Hỗ trợ trỏ tới Admin
 bot.callbackQuery("inline_support", async (ctx) => {
   await ctx.answerCallbackQuery().catch(() => {});
   await ctx.deleteMessage().catch(() => {});
   const keyboard = new InlineKeyboard()
-    .url("💬 Trò chuyện cùng Admin @zophim", "https://t.me/zophim")
+    .url(`💬 Trò chuyện cùng Admin @${SUPPORT_USERNAME}`, `https://t.me/${SUPPORT_USERNAME}`)
     .row()
     .text("🔙 Về danh mục sản phẩm", "menu_products");
 
@@ -837,8 +838,8 @@ bot.callbackQuery("inline_support", async (ctx) => {
     `💬 <b>TRUNG TÂM CHĂM SÓC KHÁCH HÀNG · RINQ SHOP</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `Kính chào Quý khách, đội ngũ RINQ SHOP luôn thường trực tiếp nhận và hỗ trợ Quý khách 24/7:\n\n` +
-    `• <b>Admin hỗ trợ:</b> <b>@zophim</b>\n` +
-    `• <b>Đường dẫn kết nối:</b> https://t.me/zophim\n` +
+    `• <b>Admin hỗ trợ:</b> <b>@${SUPPORT_USERNAME}</b>\n` +
+    `• <b>Đường dẫn kết nối:</b> https://t.me/${SUPPORT_USERNAME}\n` +
     `• <b>Nội dung tiếp nhận:</b> Tư vấn tài nguyên, bảo hành tài khoản, đối soát giao dịch.\n\n` +
     `Kính mời Quý khách bấm vào nút <b>💬 Trò chuyện cùng Admin</b> bên dưới:`,
     { parse_mode: "HTML", reply_markup: keyboard }
