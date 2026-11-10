@@ -1,6 +1,7 @@
 import "dotenv/config";
 import fs from "fs";
 import path from "path";
+import http from "node:http";
 import { randomBytes } from "crypto";
 import { Bot, Keyboard, InlineKeyboard, InputFile } from "grammy";
 import { prisma } from "../lib/prisma";
@@ -2417,11 +2418,26 @@ console.log("🚀 Đang khởi động Telegram Bot...");
 
 let heartbeatTimer: NodeJS.Timeout | null = null;
 let priceSyncTimer: NodeJS.Timeout | null = null;
+let healthServer: http.Server | null = null;
+
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
+try {
+  healthServer = http.createServer((req, res) => {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "ok", service: "RINQ Telegram Bot", uptime: Math.round(process.uptime()) }));
+  });
+  healthServer.listen(PORT, "0.0.0.0", () => {
+    console.log(`📡 Health-check server lắng nghe tại port ${PORT}`);
+  });
+} catch (e) {
+  console.warn("Không khởi chạy health-check server:", e);
+}
 
 async function cleanupAndExit() {
   console.log("\n🛑 Đang dừng Bot...");
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (priceSyncTimer) clearInterval(priceSyncTimer);
+  if (healthServer) healthServer.close();
   await stopBotHeartbeat().catch(() => {});
   process.exit(0);
 }
