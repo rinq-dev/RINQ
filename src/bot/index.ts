@@ -146,9 +146,9 @@ export function getProductStockCount(p: any): number {
   return manualCount > 0 ? manualCount : apiCount;
 }
 
-// Helper: Tải danh sách sản phẩm kèm cấu hình NCC từ SQLite
+// Helper: Tải danh sách sản phẩm kèm cấu hình NCC
 export async function fetchProductsWithSupplierMeta(whereClause: any = { isActive: true }): Promise<any[]> {
-  const products = await prisma.product.findMany({
+  return await prisma.product.findMany({
     where: whereClause,
     orderBy: { id: "asc" },
     include: {
@@ -158,41 +158,11 @@ export async function fetchProductsWithSupplierMeta(whereClause: any = { isActiv
       },
     },
   });
-
-  try {
-    const rawList = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, priceNote, supplierVariantId, fulfillmentType, imageUrl, warranty FROM "Product"`
-    );
-    if (rawList && Array.isArray(rawList)) {
-      const rawMap = new Map(rawList.map((r) => [Number(r.id), r]));
-      return products.map((p) => {
-        const extra = rawMap.get(p.id);
-        return {
-          ...p,
-          priceNote: extra?.priceNote || (p as any).priceNote || null,
-          imageUrl: extra?.imageUrl || (p as any).imageUrl || null,
-          supplierVariantId: extra?.supplierVariantId || null,
-          fulfillmentType: extra?.fulfillmentType || "HYBRID",
-          warranty: extra?.warranty || p.warranty || null,
-        };
-      });
-    }
-  } catch (e) {
-    console.warn("Lỗi đọc metadata sản phẩm:", e);
-  }
-  return products.map((p) => ({
-    ...p,
-    priceNote: (p as any).priceNote || null,
-    imageUrl: (p as any).imageUrl || null,
-    supplierVariantId: (p as any).supplierVariantId || null,
-    fulfillmentType: (p as any).fulfillmentType || "HYBRID",
-    warranty: p.warranty || null,
-  }));
 }
 
-// Helper: Tải chi tiết 1 sản phẩm kèm cấu hình NCC từ SQLite
+// Helper: Tải chi tiết 1 sản phẩm kèm cấu hình NCC
 export async function fetchSingleProductWithSupplierMeta(id: number): Promise<any> {
-  const product = await prisma.product.findUnique({
+  return await prisma.product.findUnique({
     where: { id },
     include: {
       stocks: {
@@ -200,33 +170,6 @@ export async function fetchSingleProductWithSupplierMeta(id: number): Promise<an
       },
     },
   });
-  if (!product) return null;
-
-  try {
-    const pRows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT priceNote, supplierVariantId, fulfillmentType, imageUrl, warranty FROM "Product" WHERE id = ?`,
-      id
-    );
-    if (pRows && pRows.length > 0) {
-      const extra = pRows[0];
-      return {
-        ...product,
-        priceNote: extra.priceNote || (product as any).priceNote || null,
-        imageUrl: extra.imageUrl || (product as any).imageUrl || null,
-        supplierVariantId: extra.supplierVariantId || null,
-        fulfillmentType: extra.fulfillmentType || "HYBRID",
-        warranty: extra.warranty || product.warranty || null,
-      };
-    }
-  } catch {}
-  return {
-    ...product,
-    priceNote: (product as any).priceNote || null,
-    imageUrl: (product as any).imageUrl || null,
-    supplierVariantId: (product as any).supplierVariantId || null,
-    fulfillmentType: (product as any).fulfillmentType || "HYBRID",
-    warranty: product.warranty || null,
-  };
 }
 
 // Helper: Hiển thị danh sách các Danh Mục Sản Phẩm (Tier 1: Categories)
@@ -750,14 +693,11 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
       telegramId,
       username,
       productId: product.id,
+      quantity: 1,
       totalAmount: finalPrice,
       status: "PENDING",
     },
   });
-  await prisma.$executeRawUnsafe(
-    `UPDATE "Order" SET quantity = 1 WHERE id = ?`,
-    orderId
-  );
 
   // Tải ảnh mã QR qua buffer
   const qrBuffer = await fetchQRCodeBuffer(
@@ -825,11 +765,12 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
   }
 
   if (sentQrMsg?.message_id) {
-    await prisma.$executeRawUnsafe(
-      `UPDATE "Order" SET qrMessageId = ? WHERE id = ?`,
-      sentQrMsg.message_id,
-      orderId
-    );
+    await prisma.order
+      .update({
+        where: { id: orderId },
+        data: { qrMessageId: sentQrMsg.message_id },
+      })
+      .catch(() => {});
   }
 });
 
@@ -1039,15 +980,11 @@ bot.callbackQuery(/^skip_coupon:(\d+):(\d+)$/, async (ctx) => {
       telegramId,
       username,
       productId: product.id,
+      quantity,
       totalAmount,
       status: "PENDING",
     },
   });
-  await prisma.$executeRawUnsafe(
-    `UPDATE "Order" SET quantity = ? WHERE id = ?`,
-    quantity,
-    orderId
-  );
 
   const qrBuffer = await fetchQRCodeBuffer(
     BANK_ID,
@@ -1105,11 +1042,12 @@ bot.callbackQuery(/^skip_coupon:(\d+):(\d+)$/, async (ctx) => {
   }
 
   if (sentQrMsg?.message_id) {
-    await prisma.$executeRawUnsafe(
-      `UPDATE "Order" SET qrMessageId = ? WHERE id = ?`,
-      sentQrMsg.message_id,
-      orderId
-    );
+    await prisma.order
+      .update({
+        where: { id: orderId },
+        data: { qrMessageId: sentQrMsg.message_id },
+      })
+      .catch(() => {});
   }
 });
 
@@ -1236,15 +1174,11 @@ bot.on("message:text", async (ctx, next) => {
         telegramId,
         username,
         productId: product.id,
+        quantity: state.quantity,
         totalAmount: finalPrice,
         status: "PENDING",
       },
     });
-    await prisma.$executeRawUnsafe(
-      `UPDATE "Order" SET quantity = ? WHERE id = ?`,
-      state.quantity,
-      orderId
-    );
 
     const qrBuffer = await fetchQRCodeBuffer(
       BANK_ID,
@@ -1303,11 +1237,12 @@ bot.on("message:text", async (ctx, next) => {
     }
 
     if (sentQrMsg?.message_id) {
-      await prisma.$executeRawUnsafe(
-        `UPDATE "Order" SET qrMessageId = ? WHERE id = ?`,
-        sentQrMsg.message_id,
-        orderId
-      );
+      await prisma.order
+        .update({
+          where: { id: orderId },
+          data: { qrMessageId: sentQrMsg.message_id },
+        })
+        .catch(() => {});
     }
     return;
   }
@@ -1369,14 +1304,11 @@ bot.command("buy", async (ctx) => {
       telegramId,
       username,
       productId: product.id,
+      quantity: 1,
       totalAmount: finalPrice,
       status: "PENDING",
     },
   });
-  await prisma.$executeRawUnsafe(
-    `UPDATE "Order" SET quantity = 1 WHERE id = ?`,
-    orderId
-  );
 
   const qrBuffer = await fetchQRCodeBuffer(
     BANK_ID,
@@ -1433,11 +1365,12 @@ bot.command("buy", async (ctx) => {
   }
 
   if (sentQrMsg?.message_id) {
-    await prisma.$executeRawUnsafe(
-      `UPDATE "Order" SET qrMessageId = ? WHERE id = ?`,
-      sentQrMsg.message_id,
-      orderId
-    );
+    await prisma.order
+      .update({
+        where: { id: orderId },
+        data: { qrMessageId: sentQrMsg.message_id },
+      })
+      .catch(() => {});
   }
 });
 
