@@ -837,7 +837,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast(`Đã gửi thông báo hàng về tới ${data.notifyResult?.sentCount || 0} khách hàng!`);
+        showToast(`Đã gửi thông báo giới thiệu sản phẩm tới ${data.notifyResult?.sentCount || 0} khách hàng!`);
       } else {
         showToast(data.error || "Lỗi bắn thông báo", true);
       }
@@ -1811,8 +1811,8 @@ export default function AdminPage() {
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4" role="presentation">
           <section role="dialog" aria-modal="true" aria-labelledby="restock-confirm-title" className="w-full max-w-md border-2 border-black bg-white p-5 text-black">
             <div className="mb-3 h-2 w-16 bg-pink-600" />
-            <h2 id="restock-confirm-title" className="text-lg font-black">GỬI THÔNG BÁO HÀNG VỀ?</h2>
-            <p className="mt-2 text-sm text-slate-700">Sản phẩm <b>{notifyConfirm.productName}</b> sẽ được gửi tới toàn bộ <b>{stats.subscriberCount ?? 0}</b> khách hàng theo dõi bot.</p>
+            <h2 id="restock-confirm-title" className="text-lg font-black uppercase">Gửi giới thiệu sản phẩm?</h2>
+            <p className="mt-2 text-sm text-slate-700">Sản phẩm <b>{notifyConfirm.productName}</b> sẽ được gửi kèm hình ảnh, mô tả chi tiết và nút đặt mua tới toàn bộ <b>{stats.subscriberCount ?? 0}</b> khách hàng theo dõi bot.</p>
             <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={isSendingRestock} onClick={() => setNotifyConfirm(null)} className="min-h-10 border-2 border-black bg-white px-4 text-sm font-bold">Hủy</button><button type="button" disabled={isSendingRestock} onClick={() => void confirmNotifyProduct()} className="min-h-10 border-2 border-black bg-pink-600 px-4 text-sm font-bold text-white">{isSendingRestock ? "Đang gửi…" : "Gửi thông báo"}</button></div>
           </section>
         </div>

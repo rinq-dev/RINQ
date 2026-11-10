@@ -85,7 +85,7 @@ export async function countSubscribers(): Promise<number> {
   return ids.length;
 }
 
-// Bắn thông báo hàng mới về
+// Bắn thông báo giới thiệu sản phẩm / hàng mới tới khách hàng
 export async function broadcastStockAlert({
   productId,
   productName,
@@ -94,10 +94,10 @@ export async function broadcastStockAlert({
   totalStock,
 }: {
   productId: number;
-  productName: string;
-  price: number;
-  addedCount: number;
-  totalStock: number;
+  productName?: string;
+  price?: number;
+  addedCount?: number;
+  totalStock?: number;
 }) {
   const botToken = process.env.BOT_TOKEN;
   if (!botToken) {
@@ -109,20 +109,56 @@ export async function broadcastStockAlert({
     return { success: true, sentCount: 0, total: 0, message: "Chưa có người dùng nào để gửi thông báo" };
   }
 
-  const message =
-    `✦ <b>RINQ SHOP · THÔNG BÁO TÀI NGUYÊN VỀ KHO</b> ✦\n` +
-    `\n` +
-    `Kính gửi Quý khách, sản phẩm Quý khách quan tâm vừa được cập nhật thêm số lượng mới vào kho:\n\n` +
-    `📦 <b>Sản phẩm:</b> <b>${productName}</b>\n` +
-    `⚡ <b>Số lượng bổ sung:</b> <b>+${addedCount} tài nguyên</b>\n` +
-    `📊 <b>Tồn kho sẵn có:</b> <b>${totalStock} sản phẩm</b>\n` +
-    `💰 <b>Đơn giá ưu đãi:</b> <b>${price.toLocaleString("vi-VN")} đ</b>\n\n` +
-    `<i>Kính mời Quý khách bấm nút bên dưới để đặt mua tự động tức thì:</i>`;
+  // Tải đầy đủ thông tin sản phẩm từ database (ảnh, mô tả, chính sách bảo hành, ghi chú)
+  const product = await prisma.product
+    .findUnique({
+      where: { id: productId },
+    })
+    .catch(() => null);
+
+  const name = product?.name || productName || "Sản phẩm";
+  const cost = product?.price ?? price ?? 0;
+  const imageUrl = product?.imageUrl?.trim() || "";
+  const desc = product?.description?.trim() || "";
+  const warranty = product?.warranty?.trim() || "";
+  const priceNote = product?.priceNote?.trim() || "";
+
+  // Tạo nội dung thông báo đẹp mắt dạng bài giới thiệu sản phẩm
+  const buildText = (maxDescLen?: number) => {
+    const lines: string[] = [];
+    lines.push(`✦ <b>${name.toUpperCase()}</b> ✦\n`);
+    lines.push(
+      `💰 <b>${cost.toLocaleString("vi-VN")} đ</b> / sản phẩm • 🟢 <b>Sẵn hàng (Giao tự động 24/7)</b>\n`
+    );
+
+    if (desc) {
+      if (maxDescLen && desc.length > maxDescLen) {
+        lines.push(`${desc.slice(0, maxDescLen)}...\n`);
+      } else {
+        lines.push(`${desc}\n`);
+      }
+    }
+
+    if (warranty) {
+      const hasShield = warranty.includes("🛡️") || warranty.includes("BẢO HÀNH");
+      lines.push(`<blockquote>${hasShield ? "" : "🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n"}${warranty}</blockquote>\n`);
+    }
+
+    if (priceNote) {
+      lines.push(`<blockquote>📝 <b>GHI CHÚ:</b>\n${priceNote}</blockquote>\n`);
+    }
+
+    lines.push(`👇 <i>Kính mời Quý khách bấm nút bên dưới để xem gói và đặt mua:</i>`);
+    return lines.join("\n");
+  };
+
+  const captionText = buildText(350); // Caption sendPhoto tối đa 1024 ký tự
+  const fullMessageText = buildText(); // Cho tin nhắn văn bản sendMessage
 
   const inline_keyboard = [
     [
       {
-        text: `🛒 Mua ngay ${productName}`,
+        text: `✨ Xem ${name.slice(0, 32)} · ${cost.toLocaleString("vi-VN")}đ`,
         callback_data: `prod:${productId}`,
       },
     ],
@@ -131,21 +167,41 @@ export async function broadcastStockAlert({
   let sentCount = 0;
   for (const chatId of recipients) {
     try {
-      const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: message,
-          parse_mode: "HTML",
-          reply_markup: { inline_keyboard },
-        }),
-      });
-      if (res.ok) {
-        sentCount++;
+      let sent = false;
+      if (imageUrl) {
+        try {
+          const res = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: chatId,
+              photo: imageUrl,
+              caption: captionText.slice(0, 1024),
+              parse_mode: "HTML",
+              reply_markup: { inline_keyboard },
+            }),
+          });
+          if (res.ok) sent = true;
+        } catch {}
       }
+
+      if (!sent) {
+        const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: fullMessageText.slice(0, 4096),
+            parse_mode: "HTML",
+            reply_markup: { inline_keyboard },
+          }),
+        });
+        if (res.ok) sent = true;
+      }
+
+      if (sent) sentCount++;
     } catch (err) {
-      console.error(`Lỗi gửi thông báo đến ${chatId}:`, err);
+      console.error(`Lỗi gửi thông báo sản phẩm đến ${chatId}:`, err);
     }
   }
 
