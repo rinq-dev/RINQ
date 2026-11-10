@@ -776,7 +776,8 @@ export default function AdminPage() {
   // Nạp kho hàng loạt
   const handleBulkImport = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProductId || !bulkText.trim()) {
+    const effectiveProductId = selectedProductId || (products.length > 0 ? String(products[0].id) : "");
+    if (!effectiveProductId || !bulkText.trim()) {
       showToast("Vui lòng chọn sản phẩm và nhập danh sách tài nguyên", true);
       return;
     }
@@ -790,7 +791,7 @@ export default function AdminPage() {
         },
         body: JSON.stringify({
           action: "BULK_IMPORT",
-          productId: selectedProductId,
+          productId: effectiveProductId,
           rawLines: bulkText,
           notifyUsers: notifyOnImport,
         }),
@@ -800,7 +801,7 @@ export default function AdminPage() {
       if (data.success) {
         let msg = `Đã nạp thành công ${data.count} tài nguyên vào kho!`;
         if (data.notifyResult?.sentCount > 0) {
-          msg += ` (Đã bắn thông báo tới ${data.notifyResult.sentCount} khách hàng)`;
+          msg += ` (Đã gửi giới thiệu tới ${data.notifyResult.sentCount} khách hàng)`;
         }
         showToast(msg);
         setBulkText("");

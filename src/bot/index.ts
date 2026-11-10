@@ -172,8 +172,8 @@ export async function fetchSingleProductWithSupplierMeta(id: number): Promise<an
   });
 }
 
-// Helper: Hiển thị danh sách các Danh Mục Sản Phẩm (Tier 1: Categories)
-async function renderCatalog(ctx: any, deletePrevious = false) {
+// Helper: Hiển thị danh sách các Danh Mục Sản Phẩm (Lưới 3 cột gọn gàng như ảnh mẫu)
+async function renderCatalog(ctx: any, deletePrevious = false, page = 1) {
   if (deletePrevious) {
     await ctx.deleteMessage().catch(() => {});
   }
@@ -208,29 +208,51 @@ async function renderCatalog(ctx: any, deletePrevious = false) {
   const inStockCount = products.filter((p) => getProductStockCount(p) > 0).length;
   const outOfStockCount = totalProducts - inStockCount;
 
-  const inlineKeyboard = new InlineKeyboard();
-
-  // Hiển thị danh sách từng Danh Mục có sắp xếp ưu tiên và gắn icon nhận diện
+  // Hiển thị danh sách từng Danh Mục có sắp xếp ưu tiên
   const sortedCategories = Array.from(categoriesMap.entries()).sort(
     ([a], [b]) => getCategoryPriority(a) - getCategoryPriority(b)
   );
 
-  sortedCategories.forEach(([catName, catProducts]) => {
-    const icon = getCategoryIcon(catName);
-    const totalStock = catProducts.reduce((sum: number, item: any) => sum + getProductStockCount(item), 0);
-    const stockBadge = totalStock > 0 ? `🟢 Còn ${totalStock}` : "🔴 Tạm hết";
-    inlineKeyboard
-      .text(`${icon} ${catName} · ${catProducts.length} loại (${stockBadge})`, `cat:${catName}`)
-      .row();
-  });
+  // Phân trang danh mục (24 danh mục / trang = 8 hàng × 3 cột)
+  const PAGE_SIZE = 24;
+  const totalPages = Math.max(1, Math.ceil(sortedCategories.length / PAGE_SIZE));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const pageCategories = sortedCategories.slice(startIndex, startIndex + PAGE_SIZE);
+
+  const inlineKeyboard = new InlineKeyboard();
+
+  // Tạo lưới 3 cột theo chuẩn giao diện gọn gàng
+  for (let i = 0; i < pageCategories.length; i += 3) {
+    const row = pageCategories.slice(i, i + 3);
+    row.forEach(([catName]) => {
+      const label = catName.length > 18 ? `${catName.slice(0, 16)}…` : catName;
+      inlineKeyboard.text(label, `cat:${catName}`);
+    });
+    inlineKeyboard.row();
+  }
+
+  // Thanh phân trang nếu có nhiều hơn 1 trang
+  if (totalPages > 1) {
+    if (currentPage > 1) {
+      inlineKeyboard.text("⬅️ Trang trước", `catpage:${currentPage - 1}`);
+    }
+    inlineKeyboard.text(`📄 ${currentPage}/${totalPages}`, "noop");
+    if (currentPage < totalPages) {
+      inlineKeyboard.text("Trang sau ➡️", `catpage:${currentPage + 1}`);
+    }
+    inlineKeyboard.row();
+  }
 
   // Nút xem tất cả sản phẩm
-  inlineKeyboard.text("🌐 Xem tất cả các gói sản phẩm", "cat:ALL").row();
+  inlineKeyboard.text("🌐 Xem tất cả sản phẩm", "cat:ALL").row();
 
-  // 3 nút tiện ích nằm ngay cuối danh mục
-  inlineKeyboard.text("🔄 Làm mới danh mục & tồn kho", "refresh_catalog").row();
-  inlineKeyboard.text("📦 Lịch sử đơn hàng của tôi", "inline_my_orders").row();
-  inlineKeyboard.text("💬 Hỗ trợ trực tuyến (@zophim)", "inline_support").row();
+  // Hàng công cụ tiện ích dưới đáy (gọn gàng 3 nút / 1 hàng)
+  inlineKeyboard
+    .text("🔄 Làm mới", "refresh_catalog")
+    .text("📦 Đơn của tôi", "inline_my_orders")
+    .text("💬 Hỗ trợ", "inline_support")
+    .row();
 
   const now = new Date();
   const timeStr = now.toLocaleTimeString("vi-VN", {
@@ -255,7 +277,7 @@ async function renderCatalog(ctx: any, deletePrevious = false) {
     flashSaleBanner +
     `❖ <b>RINQ SHOP · DANH MỤC DỊCH VỤ CAO CẤP</b> ❖\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `Hệ thống hiện cung cấp <b>${categoriesMap.size}</b> danh mục chính với <b>${totalProducts}</b> loại dịch vụ:\n` +
+    `Hệ thống hiện có <b>${categoriesMap.size}</b> danh mục với <b>${totalProducts}</b> gói sản phẩm:\n` +
     `• Tình trạng: 🟢 <b>${inStockCount}</b> sẵn có  |  🔴 <b>${outOfStockCount}</b> tạm hết\n` +
     `• Trạng thái hệ thống: <b>Trực tuyến 24/7</b>\n\n` +
     `Kính mời Quý khách bấm chọn <b>Danh mục</b> bên dưới để xem chi tiết các loại gói dịch vụ:` +
@@ -662,6 +684,16 @@ bot.callbackQuery(/^cat:(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery().catch(() => {});
   const catName = ctx.match[1];
   await renderCategoryProducts(ctx, catName, false);
+});
+
+bot.callbackQuery(/^catpage:(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  const page = parseInt(ctx.match[1], 10) || 1;
+  await renderCatalog(ctx, false, page);
+});
+
+bot.callbackQuery("noop", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
 });
 
 // 5. Callback Query: Mua ngay `buy:<id>` (XÓA CHI TIẾT ĐỂ THAY THẾ BẰNG MÃ QR)

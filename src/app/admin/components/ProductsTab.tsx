@@ -23,6 +23,9 @@ import {
   Grid2X2,
   List,
   Pencil,
+  ChevronLeft,
+  ChevronRight,
+  LoaderCircle,
 } from "lucide-react";
 import { Product } from "../types";
 import ProductImageField from "./ProductImageField";
@@ -134,10 +137,51 @@ export default function ProductsTab({
   const [notifyOnDelete, setNotifyOnDelete] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const categoriesRef = React.useRef<HTMLDivElement>(null);
+  const [quickStockTarget, setQuickStockTarget] = useState<Product | null>(null);
+  const [quickStockText, setQuickStockText] = useState("");
+  const [quickNotify, setQuickNotify] = useState(true);
+  const [isSubmittingQuickStock, setIsSubmittingQuickStock] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const scrollCategoryTabs = (amount: number) => {
+    if (categoriesRef.current) {
+      categoriesRef.current.scrollBy({ left: amount, behavior: "smooth" });
+    }
+  };
+
+  const handleQuickStockSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickStockTarget || !quickStockText.trim()) return;
+    setIsSubmittingQuickStock(true);
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "BULK_IMPORT",
+          productId: quickStockTarget.id,
+          rawLines: quickStockText,
+          notifyUsers: quickNotify,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setQuickStockTarget(null);
+        setQuickStockText("");
+        onScoopyImported();
+      } else {
+        alert(data.error || "Lỗi nạp kho");
+      }
+    } catch (err: any) {
+      alert(err.message || "Lỗi kết nối");
+    } finally {
+      setIsSubmittingQuickStock(false);
+    }
+  };
 
   const openRenameCategory = (name: string) => {
     setEditingCategory(name);
@@ -189,53 +233,96 @@ export default function ProductsTab({
             <p className="text-xs text-slate-600 font-medium">Hiện có {products.length} sản phẩm</p>
           </div>
 
-          {/* Search box */}
-          <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="h-3.5 w-3.5 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm sản phẩm..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 pr-3 py-1.5 rounded-full text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:border-emerald-600 w-full sm:w-48 text-slate-800 transition"
-            />
-          </div>
-          <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5" aria-label="Kiểu hiển thị">
-            <button type="button" onClick={() => setViewMode("list")} className={`rounded-md p-1.5 ${viewMode === "list" ? "bg-white text-slate-900 shadow-sm" : "text-slate-400"}`} aria-label="Hiển thị danh sách"><List className="h-4 w-4" /></button>
-            <button type="button" onClick={() => setViewMode("grid")} className={`rounded-md p-1.5 ${viewMode === "grid" ? "bg-white text-slate-900 shadow-sm" : "text-slate-400"}`} aria-label="Hiển thị lưới"><Grid2X2 className="h-4 w-4" /></button>
-          </div>
+          {/* Actions & Search box */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById("create-product-section");
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth" });
+                  const inp = el.querySelector("input");
+                  if (inp) inp.focus();
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#0e704b] hover:bg-[#0a5c3d] text-white px-3.5 py-1.5 text-xs font-bold transition shadow-sm shrink-0 active:scale-95"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Thêm sản phẩm</span>
+            </button>
+            <div className="relative">
+              <Search className="h-3.5 w-3.5 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm sản phẩm..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 pr-3 py-1.5 rounded-full text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:border-emerald-600 w-full sm:w-44 text-slate-800 transition"
+              />
+            </div>
+            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5" aria-label="Kiểu hiển thị">
+              <button type="button" onClick={() => setViewMode("list")} className={`rounded-md p-1.5 ${viewMode === "list" ? "bg-white text-slate-900 shadow-sm" : "text-slate-400"}`} aria-label="Hiển thị danh sách"><List className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setViewMode("grid")} className={`rounded-md p-1.5 ${viewMode === "grid" ? "bg-white text-slate-900 shadow-sm" : "text-slate-400"}`} aria-label="Hiển thị lưới"><Grid2X2 className="h-4 w-4" /></button>
+            </div>
           </div>
         </div>
 
-        {/* Category Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-4 scrollbar-none">
+        {/* Category Filter Tabs with Horizontal Scroll Controls */}
+        <div className="relative mb-4">
           <button
             type="button"
-            onClick={() => setSelectedProductCategory("ALL")}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap border ${
-              selectedProductCategory === "ALL"
-                ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-                : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-            }`}
+            onClick={() => scrollCategoryTabs(-200)}
+            title="Cuộn sang trái"
+            className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 hidden sm:flex h-7 w-7 items-center justify-center rounded-full bg-white border border-slate-300 shadow-md text-slate-700 hover:bg-slate-100 hover:text-black transition"
           >
-            Tất cả ({products.length})
+            <ChevronLeft className="h-4 w-4" />
           </button>
-          {categoriesList.map((cat) => {
-            const isSelected = selectedProductCategory === cat.name;
-            return (
-              <div key={cat.name} className={`flex shrink-0 items-center rounded-full border transition ${isSelected ? "border-[#0e704b] bg-[#0e704b] text-white shadow-sm" : "border-emerald-100 bg-emerald-50 text-[#0e704b] hover:bg-emerald-100"}`}>
-                <button type="button" onClick={() => setSelectedProductCategory(cat.name)} className="flex items-center gap-1.5 py-1.5 pl-3 pr-1 text-xs font-bold whitespace-nowrap">
-                  <Folder className="h-3.5 w-3.5 shrink-0" />
-                  <span>{cat.name}</span>
-                  <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${isSelected ? "bg-white/20 text-white" : "bg-emerald-200/60 text-[#0e704b]"}`}>{cat.count}</span>
-                </button>
-                <button type="button" onClick={() => openRenameCategory(cat.name)} className={`mr-1 rounded-full p-1.5 transition ${isSelected ? "text-white/80 hover:bg-white/20 hover:text-white" : "text-[#0e704b]/60 hover:bg-white hover:text-[#0e704b]"}`} aria-label={`Sửa tên danh mục ${cat.name}`} title="Sửa tên danh mục">
-                  <Pencil className="h-3 w-3" />
-                </button>
-              </div>
-            );
-          })}
+
+          <div
+            ref={categoriesRef}
+            onWheel={(e) => {
+              if (e.deltaY !== 0) {
+                e.currentTarget.scrollLeft += e.deltaY;
+              }
+            }}
+            className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent select-none px-1"
+          >
+            <button
+              type="button"
+              onClick={() => setSelectedProductCategory("ALL")}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap border shrink-0 ${
+                selectedProductCategory === "ALL"
+                  ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                  : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              Tất cả ({products.length})
+            </button>
+            {categoriesList.map((cat) => {
+              const isSelected = selectedProductCategory === cat.name;
+              return (
+                <div key={cat.name} className={`flex shrink-0 items-center rounded-full border transition ${isSelected ? "border-[#0e704b] bg-[#0e704b] text-white shadow-sm" : "border-emerald-100 bg-emerald-50 text-[#0e704b] hover:bg-emerald-100"}`}>
+                  <button type="button" onClick={() => setSelectedProductCategory(cat.name)} className="flex items-center gap-1.5 py-1.5 pl-3 pr-1 text-xs font-bold whitespace-nowrap">
+                    <Folder className="h-3.5 w-3.5 shrink-0" />
+                    <span>{cat.name}</span>
+                    <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${isSelected ? "bg-white/20 text-white" : "bg-emerald-200/60 text-[#0e704b]"}`}>{cat.count}</span>
+                  </button>
+                  <button type="button" onClick={() => openRenameCategory(cat.name)} className={`mr-1 rounded-full p-1.5 transition ${isSelected ? "text-white/80 hover:bg-white/20 hover:text-white" : "text-[#0e704b]/60 hover:bg-white hover:text-[#0e704b]"}`} aria-label={`Sửa tên danh mục ${cat.name}`} title="Sửa tên danh mục">
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => scrollCategoryTabs(200)}
+            title="Cuộn sang phải"
+            className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 hidden sm:flex h-7 w-7 items-center justify-center rounded-full bg-white border border-slate-300 shadow-md text-slate-700 hover:bg-slate-100 hover:text-black transition"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
 
         <div className={viewMode === "list" ? "overflow-x-auto" : "hidden"}>
@@ -325,6 +412,20 @@ export default function ProductsTab({
                     <div className="flex items-center justify-end gap-1">
                       <button
                         type="button"
+                        onClick={() => {
+                          setQuickStockTarget(p);
+                          setQuickStockText("");
+                          setQuickNotify(true);
+                        }}
+                        title="Nạp thêm kho nhanh cho sản phẩm này"
+                        aria-label={`Nạp kho ${p.name}`}
+                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1.5 text-xs font-bold text-[#0e704b] hover:bg-[#0e704b] hover:text-white transition shadow-sm"
+                      >
+                        <Upload className="h-3.5 w-3.5" />
+                        <span className="hidden xl:inline">Nạp kho</span>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => openEditModal(p)}
                         title="Chỉnh sửa sản phẩm"
                         aria-label={`Sửa ${p.name}`}
@@ -375,6 +476,18 @@ export default function ProductsTab({
                 {p.imageUrl ? <img src={p.imageUrl} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" /> : <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-slate-400"><ImageIcon className="h-5 w-5" /></div>}
                 <div className="min-w-0 flex-1"><button type="button" onClick={() => setSelectedProduct(p)} className="line-clamp-2 text-left text-sm font-extrabold leading-5 text-slate-900 hover:text-[#0e704b]">{p.name}</button><div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-bold"><button type="button" onClick={() => openEditModal(p)} title="Bấm để đổi folder / danh mục" className="inline-flex items-center gap-1 rounded bg-white px-1.5 py-1 text-slate-600 hover:bg-emerald-100 hover:text-[#0e704b] transition"><Folder className="h-2.5 w-2.5 text-slate-400" /><span>{p.category || "Chưa phân loại"}</span></button><span className={`rounded px-1.5 py-1 ${p.supplierVariantId ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}>{p.supplierVariantId?.startsWith("ROBOTIC:") ? "RoboticVN" : p.supplierVariantId?.startsWith("SCOOPY:") ? "ScoopyVN" : p.supplierVariantId ? "API" : "Thủ công"}</span></div></div>
                 <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickStockTarget(p);
+                      setQuickStockText("");
+                      setQuickNotify(true);
+                    }}
+                    title="Nạp kho nhanh"
+                    className="rounded-lg bg-emerald-50 p-1.5 text-[#0e704b] hover:bg-[#0e704b] hover:text-white transition"
+                  >
+                    <Upload className="h-4 w-4" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => openEditModal(p)}
@@ -528,6 +641,19 @@ export default function ProductsTab({
               )}
             </dl>
             <div className="mt-6 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const prod = selectedProduct;
+                  setSelectedProduct(null);
+                  setQuickStockTarget(prod);
+                  setQuickStockText("");
+                  setQuickNotify(true);
+                }}
+                className="rounded-xl bg-emerald-50 px-4 py-3 text-xs font-bold text-[#0e704b] hover:bg-emerald-100 transition"
+              >
+                Nạp kho
+              </button>
               <button type="button" onClick={() => { openEditModal(selectedProduct); setSelectedProduct(null); }} className="flex-1 min-w-[120px] rounded-xl bg-[#0e704b] px-4 py-3 text-xs font-bold text-white hover:bg-[#0a5c3d] transition">Sửa sản phẩm</button>
               <button type="button" onClick={() => { handleNotifyProduct(selectedProduct.id, selectedProduct.name); setSelectedProduct(null); }} className="rounded-xl bg-pink-50 px-4 py-3 text-xs font-bold text-pink-600 hover:bg-pink-100 transition">Thông báo</button>
               <button type="button" onClick={() => { const prod = selectedProduct; setSelectedProduct(null); openDeleteProduct(prod); }} className="rounded-xl bg-rose-50 px-4 py-3 text-xs font-bold text-rose-600 hover:bg-rose-100 transition">Xóa sản phẩm</button>
@@ -537,10 +663,85 @@ export default function ProductsTab({
         document.body
       )}
 
+      {/* Quick Stock-in Modal */}
+      {mounted && typeof document !== "undefined" && quickStockTarget && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 overflow-y-auto" role="presentation" onMouseDown={() => !isSubmittingQuickStock && setQuickStockTarget(null)}>
+          <form role="dialog" aria-modal="true" aria-labelledby="quick-stock-title" onSubmit={handleQuickStockSubmit} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl my-auto">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Nạp kho nhanh</p>
+                <h2 id="quick-stock-title" className="mt-1 text-base font-black text-slate-900 line-clamp-1">{quickStockTarget.name}</h2>
+                <p className="mt-0.5 text-xs text-slate-500 font-medium">Hiện có: <b className="text-[#0e704b]">{quickStockTarget.stockAvailable}</b> tồn kho</p>
+              </div>
+              <button type="button" onClick={() => setQuickStockTarget(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Đóng">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-bold uppercase tracking-wide text-slate-600">
+                  Dữ liệu tài khoản / Key <span className="text-rose-500">*</span>
+                </label>
+                <span className="text-xs font-bold text-[#0e704b]">
+                  {quickStockText.split(/\r?\n/).filter((l) => l.trim()).length} dòng
+                </span>
+              </div>
+              <textarea
+                autoFocus
+                rows={6}
+                placeholder={`mail1@gmail.com|pass123\nmail2@gmail.com|pass456\nKEY-ABC-XYZ`}
+                value={quickStockText}
+                onChange={(e) => setQuickStockText(e.target.value)}
+                className="w-full font-mono rounded-xl border border-slate-300 p-3 text-xs text-slate-900 outline-none focus:border-[#0e704b] focus:ring-2 focus:ring-emerald-100"
+                required
+              />
+              <p className="mt-1 text-[11px] text-slate-500">Mỗi dòng là 1 key hoặc tài khoản. Hệ thống tự tách từng dòng thành 1 sản phẩm bán.</p>
+            </div>
+
+            <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+              <input
+                type="checkbox"
+                checked={quickNotify}
+                onChange={(e) => setQuickNotify(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+              />
+              <span className="text-xs font-medium text-slate-700 select-none">
+                Tự động gửi thông báo hàng về kho qua Telegram Bot
+              </span>
+            </label>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" disabled={isSubmittingQuickStock} onClick={() => setQuickStockTarget(null)} className="min-h-10 rounded-xl border border-slate-200 px-4 text-xs font-bold text-slate-600 hover:bg-slate-50">
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmittingQuickStock || !quickStockText.trim()}
+                className="inline-flex items-center gap-1.5 min-h-10 rounded-xl bg-[#0e704b] px-4 text-xs font-bold text-white hover:bg-[#095c3d] disabled:cursor-not-allowed disabled:opacity-50 transition active:scale-95"
+              >
+                {isSubmittingQuickStock ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    <span>Đang nạp…</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    <span>Nạp kho ({quickStockText.split(/\r?\n/).filter((l) => l.trim()).length})</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>,
+        document.body
+      )}
+
       {/* Side Forms: Create Product & Bulk Import (4 cols) */}
       <div className="lg:col-span-12 grid grid-cols-1 gap-5 lg:grid-cols-12">
         {/* Form Tạo Sản Phẩm */}
-        <div className="lg:col-span-7 rounded-[24px] border border-slate-200 bg-white p-5 sm:p-6">
+        <div id="create-product-section" className="lg:col-span-7 rounded-[24px] border border-slate-200 bg-white p-5 sm:p-6">
           <div className="mb-5 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Sản phẩm mới</p><h3 className="mt-1 flex items-center gap-2 text-lg font-black text-slate-900"><Plus className="h-5 w-5 text-[#0e704b]" />Thêm sản phẩm</h3></div><span className="text-xs text-slate-500">Các trường * bắt buộc</span></div>
 
           <form onSubmit={handleCreateProduct} className="space-y-3">
