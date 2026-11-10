@@ -110,13 +110,17 @@ export async function POST(request: NextRequest) {
     }
     const ids: string[] = Array.isArray(body.productIds) ? Array.from(new Set(body.productIds.map((id: unknown) => String(id).trim()))) : [];
     const marginById = body.marginById && typeof body.marginById === "object" ? body.marginById : {};
+    const categoryById = body.categoryById && typeof body.categoryById === "object" ? body.categoryById : {};
     if (!ids.length || ids.length > 100) return NextResponse.json({ error: "Chọn từ 1 đến 100 mặt hàng." }, { status: 400 });
     const selected = await getRoboticProductsByKeys(ids);
     if (selected.length !== ids.length) return NextResponse.json({ error: "Một số sản phẩm đã chọn không còn tồn tại trên RoboticVN. Vui lòng thử lại." }, { status: 409 });
     let imported = 0; let existing = 0;
     for (const source of selected) {
       const sourceKey = `ROBOTIC:${source.id}:${source.variantId}`;
-      const margin = Math.max(0, Math.min(2000, Number(marginById[`${source.id}:${source.variantId}`] ?? 15)));
+      const itemKey = `${source.id}:${source.variantId}`;
+      const margin = Math.max(0, Math.min(2000, Number(marginById[itemKey] ?? 15)));
+      const customCategory = (typeof categoryById[itemKey] === "string" ? categoryById[itemKey] : typeof categoryById[source.id] === "string" ? categoryById[source.id] : "")?.trim().slice(0, 120);
+      const finalCategory = customCategory || categorizeProductName(source.name, source.category);
       const existingProduct = await prisma.product.findFirst({ where: { supplierVariantId: sourceKey }, select: { id: true } });
       if (existingProduct) { existing++; continue; }
       await prisma.product.create({
@@ -125,7 +129,7 @@ export async function POST(request: NextRequest) {
           price: roboticRetailPrice(source.sourcePrice, margin),
           retailMarginPercent: Math.round(margin),
           description: source.description.slice(0, 8000) || null,
-          category: categorizeProductName(source.name, source.category),
+          category: finalCategory,
           supplierVariantId: sourceKey,
           fulfillmentType: "API",
           isActive: false,

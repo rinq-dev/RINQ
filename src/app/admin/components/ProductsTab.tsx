@@ -176,7 +176,7 @@ export default function ProductsTab({
         <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Kho API</p><h2 className="mt-1 text-lg font-black uppercase">Nhập hàng từ nhà cung cấp</h2></div>
         <button type="button" onClick={() => setShowSupplierWorkspace((open) => !open)} className="min-h-10 border-2 border-black bg-black px-4 text-xs font-black uppercase text-white hover:bg-[#2457C5]">{showSupplierWorkspace ? "Đóng khu nhập hàng" : "Mở khu nhập hàng"}</button>
       </div>
-      {showSupplierWorkspace && <div className="lg:col-span-12"><div className="mb-3 flex gap-2"><button type="button" onClick={() => setSupplierPanel("robotic")} className={`min-h-9 border-2 border-black px-3 text-xs font-black uppercase ${supplierPanel === "robotic" ? "bg-[#2457C5] text-white" : "bg-white"}`}>RoboticVN</button><button type="button" onClick={() => setSupplierPanel("scoopy")} className={`min-h-9 border-2 border-black px-3 text-xs font-black uppercase ${supplierPanel === "scoopy" ? "bg-[#E63946] text-white" : "bg-white"}`}>ScoopyVN</button></div>{supplierPanel === "robotic" ? <RoboticImportPanel onImported={onScoopyImported} /> : <ScoopyImportPanel onImported={onScoopyImported} />}</div>}
+      {showSupplierWorkspace && <div className="lg:col-span-12"><div className="mb-3 flex gap-2"><button type="button" onClick={() => setSupplierPanel("robotic")} className={`min-h-9 border-2 border-black px-3 text-xs font-black uppercase ${supplierPanel === "robotic" ? "bg-[#2457C5] text-white" : "bg-white"}`}>RoboticVN</button><button type="button" onClick={() => setSupplierPanel("scoopy")} className={`min-h-9 border-2 border-black px-3 text-xs font-black uppercase ${supplierPanel === "scoopy" ? "bg-[#E63946] text-white" : "bg-white"}`}>ScoopyVN</button></div>{supplierPanel === "robotic" ? <RoboticImportPanel onImported={onScoopyImported} categoriesList={categoriesList} /> : <ScoopyImportPanel onImported={onScoopyImported} categoriesList={categoriesList} />}</div>}
 
       {/* Product List Table (8 cols) */}
       <div className="lg:col-span-12 bg-white rounded-[28px] border border-slate-200 p-5 sm:p-6 shadow-sm transition-all hover:shadow-md hover:border-slate-300">
@@ -271,11 +271,15 @@ export default function ProductsTab({
                       <div className="min-w-0">
                         <button type="button" onClick={() => setSelectedProduct(p)} className="text-left font-bold text-slate-900 leading-5 hover:text-[#0e704b]">{p.name}</button>
                         <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
-                          {p.category && (
-                            <span className="rounded bg-slate-100 px-1.5 py-0.5 font-bold text-slate-700">
-                              {p.category}
-                            </span>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(p)}
+                            title="Bấm để đổi folder / danh mục"
+                            className="inline-flex items-center gap-1 rounded bg-slate-100 hover:bg-emerald-100 hover:text-[#0e704b] px-1.5 py-0.5 font-bold text-slate-700 transition"
+                          >
+                            <Folder className="h-3 w-3 text-slate-400" />
+                            <span>{p.category || "Chưa phân loại"}</span>
+                          </button>
                           {p.supplierVariantId?.startsWith("SCOOPY:") ? (
                             <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-bold text-amber-800">
                               <Server className="h-2.5 w-2.5" />
@@ -369,7 +373,7 @@ export default function ProductsTab({
             <article key={p.id} className="group relative rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition hover:border-slate-300 hover:bg-white">
               <div className="flex items-start gap-3">
                 {p.imageUrl ? <img src={p.imageUrl} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" /> : <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-slate-400"><ImageIcon className="h-5 w-5" /></div>}
-                <div className="min-w-0 flex-1"><button type="button" onClick={() => setSelectedProduct(p)} className="line-clamp-2 text-left text-sm font-extrabold leading-5 text-slate-900 hover:text-[#0e704b]">{p.name}</button><div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-bold"><span className="rounded bg-white px-1.5 py-1 text-slate-600">{p.category || "Khác"}</span><span className={`rounded px-1.5 py-1 ${p.supplierVariantId ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}>{p.supplierVariantId?.startsWith("ROBOTIC:") ? "RoboticVN" : p.supplierVariantId?.startsWith("SCOOPY:") ? "ScoopyVN" : p.supplierVariantId ? "API" : "Thủ công"}</span></div></div>
+                <div className="min-w-0 flex-1"><button type="button" onClick={() => setSelectedProduct(p)} className="line-clamp-2 text-left text-sm font-extrabold leading-5 text-slate-900 hover:text-[#0e704b]">{p.name}</button><div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-bold"><button type="button" onClick={() => openEditModal(p)} title="Bấm để đổi folder / danh mục" className="inline-flex items-center gap-1 rounded bg-white px-1.5 py-1 text-slate-600 hover:bg-emerald-100 hover:text-[#0e704b] transition"><Folder className="h-2.5 w-2.5 text-slate-400" /><span>{p.category || "Chưa phân loại"}</span></button><span className={`rounded px-1.5 py-1 ${p.supplierVariantId ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}>{p.supplierVariantId?.startsWith("ROBOTIC:") ? "RoboticVN" : p.supplierVariantId?.startsWith("SCOOPY:") ? "ScoopyVN" : p.supplierVariantId ? "API" : "Thủ công"}</span></div></div>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"

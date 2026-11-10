@@ -128,6 +128,7 @@ export async function POST(request: NextRequest) {
       ? [...new Set<string>((body.productIds as unknown[]).map((id) => String(id).trim()).filter((id) => /^[1-9]\d{0,17}$/.test(id)))]
       : [];
     const marginById = body.marginById && typeof body.marginById === "object" ? body.marginById : {};
+    const categoryById = body.categoryById && typeof body.categoryById === "object" ? body.categoryById : {};
     if (!ids.length || ids.length > 100) {
       return NextResponse.json({ error: "Chọn từ 1 đến 100 sản phẩm cần nhập." }, { status: 400 });
     }
@@ -158,13 +159,15 @@ export async function POST(request: NextRequest) {
         }
         const margin = Math.max(0, Math.min(2000, Number(marginById[source.id] ?? 15)));
         const description = source.description?.trim().slice(0, 8000) || "Sản phẩm nhập từ danh mục ScoopyVN. Nạp kho nội bộ trước khi bật bán.";
+        const customCategory = typeof categoryById[source.id] === "string" ? categoryById[source.id].trim().slice(0, 120) : "";
+        const finalCategory = customCategory || source.group?.trim().slice(0, 120) || "ScoopyVN";
         await tx.product.create({
           data: {
             name: source.name.trim().slice(0, 250),
             price: scoopyRetailPrice(source.retail_price_vnd, margin),
             retailMarginPercent: Math.round(margin),
             description,
-            category: source.group?.trim().slice(0, 120) || "ScoopyVN",
+            category: finalCategory,
             supplierVariantId: sourceKey,
             fulfillmentType: "HYBRID",
             isActive: false,
