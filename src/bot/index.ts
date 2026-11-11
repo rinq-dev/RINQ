@@ -195,8 +195,7 @@ async function renderCatalog(ctx: any, deletePrevious = false, page = 1) {
   const totalProducts = products.length;
   if (totalProducts === 0) {
     const emptyText =
-      `❖ <b>RINQ SHOP · DANH MỤC DỊCH VỤ CAO CẤP</b> ❖\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `❖ <b>RINQ SHOP · DANH MỤC DỊCH VỤ CAO CẤP</b> ❖\n\n` +
       `Kính chào Quý khách, hiện tại cửa hàng đang cập nhật thêm sản phẩm mới.\n` +
       `Kính mời Quý khách quay lại sau ít phút hoặc liên hệ Admin để được hỗ trợ!`;
     const emptyKeyboard = new InlineKeyboard()
@@ -282,13 +281,12 @@ async function renderCatalog(ctx: any, deletePrevious = false, page = 1) {
     ? `🔥 <b>${flashSale.title.toUpperCase()} · GIẢM NGAY ${flashSale.discountPercent}%</b> 🔥\n` +
       `⏱ <i>Ưu đãi kết thúc sau: ${formatRemainingTime(flashSale.expiresAt)}</i>` +
       (flashSale.note ? `\n💬 <i>"${flashSale.note}"</i>` : "") +
-      `\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
+      `\n\n`
     : "";
 
   const messageText =
     flashSaleBanner +
-    `🛒 <b>RINQ STORE · DANH MỤC SẢN PHẨM</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━\n` +
+    `🛒 <b>RINQ STORE · DANH MỤC SẢN PHẨM</b>\n\n` +
     `📦 <b>${categoriesMap.size}</b> danh mục  •  🟢 <b>${inStockCount}</b> sẵn có  •  🔴 <b>${outOfStockCount}</b> tạm hết\n\n` +
     `🔍 <i>Mẹo: Gõ trực tiếp tên sản phẩm vào khung chat để tìm nhanh (vd: <code>gemini</code>, <code>canva</code>, <code>claude</code>...)\n` +
     `👇 Bấm vào danh mục bên dưới để xem chi tiết:</i>\n\n` +
@@ -360,8 +358,7 @@ async function handleSearchProducts(ctx: any, query: string) {
 
     const safeQ = escapeHtml(rawQ);
     await ctx.reply(
-      `🔍 <b>TÌM KIẾM SẢN PHẨM:</b> "<code>${safeQ}</code>"\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `🔍 <b>TÌM KIẾM SẢN PHẨM:</b> "<code>${safeQ}</code>"\n\n` +
       `❌ Tiếc quá, không tìm thấy sản phẩm nào khớp với từ khóa "<b>${safeQ}</b>".\n\n` +
       `💡 <i>Quý khách thử tìm từ ngắn hơn (Ví dụ: <code>gemini</code>, <code>canva</code>, <code>capcut</code>, <code>chatgpt</code>...) hoặc bấm nút bên dưới để xem toàn bộ danh mục:</i>`,
       { parse_mode: "HTML", reply_markup: inlineKeyboard }
@@ -395,8 +392,7 @@ async function handleSearchProducts(ctx: any, query: string) {
 
   const safeQ = escapeHtml(rawQ);
   await ctx.reply(
-    `🔍 <b>KẾT QUẢ TÌM KIẾM CHO:</b> "<code>${safeQ}</code>"\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `🔍 <b>KẾT QUẢ TÌM KIẾM CHO:</b> "<code>${safeQ}</code>"\n\n` +
     `Tìm thấy <b>${matched.length}</b> sản phẩm phù hợp.\n` +
     `<i>Kính mời Quý khách bấm vào sản phẩm bên dưới để xem chi tiết & đặt mua:</i>`,
     { parse_mode: "HTML", reply_markup: inlineKeyboard }
@@ -425,8 +421,7 @@ async function renderCategoryProducts(ctx: any, categoryName: string, deletePrev
   if (products.length === 0) {
     inlineKeyboard.text("🔙 Về danh mục chính", "menu_products").row();
     const emptyText =
-      `📁 <b>DANH MỤC: ${isAll ? "TẤT CẢ SẢN PHẨM" : categoryName.toUpperCase()}</b>\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `📁 <b>DANH MỤC: ${isAll ? "TẤT CẢ SẢN PHẨM" : categoryName.toUpperCase()}</b>\n\n` +
       `Hiện tại danh mục này chưa có loại sản phẩm nào khả dụng.\n` +
       `Kính mời Quý khách quay lại danh mục chính để tham khảo các dịch vụ khác!`;
     if (!deletePrevious && ctx.callbackQuery?.message) {
@@ -467,8 +462,7 @@ async function renderCategoryProducts(ctx: any, categoryName: string, deletePrev
   const totalStock = products.reduce((acc, cur) => acc + getProductStockCount(cur), 0);
 
   const text =
-    `${catIcon} <b>${title}</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `${catIcon} <b>${title}</b>\n\n` +
     `Hiện có <b>${products.length} loại gói</b> sẵn có (Tổng tồn kho: <b>${totalStock}</b> sản phẩm):\n` +
     `Kính mời Quý khách bấm vào gói cần mua bên dưới để xem chi tiết và tiến hành đặt hàng:`;
 
@@ -537,8 +531,7 @@ bot.command("start", async (ctx) => {
   }
 
   const welcomeHeader =
-    `💎 <b>RINQ STORE · HỆ THỐNG DỊCH VỤ SỐ 24/7</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━\n` +
+    `💎 <b>RINQ STORE · HỆ THỐNG DỊCH VỤ SỐ 24/7</b>\n\n` +
     `👋 Xin chào <b>${firstName}</b> (<code>${tgId}</code>)\n` +
     `💰 Số dư ví: <b>${formatVND(balance)}</b>  •  📦 Đã mua: <b>${orderCount} đơn</b>\n` +
     `⚡ <i>Thanh toán VietQR tự động · Giao key/acc sau 3 giây</i>`;
@@ -557,7 +550,6 @@ async function handleShowGiveaways(ctx: any) {
   if (gas.length === 0) {
     await ctx.reply(
       `🎁 <b>CHƯƠNG TRÌNH TRI ÂN · RINQ SHOP</b>\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `Kính chào Quý khách, hiện tại chưa có sự kiện Giveaway nào đang mở.\n` +
       `Kính mời Quý khách theo dõi các thông báo tiếp theo từ shop để không bỏ lỡ phần quà tri ân hấp dẫn!`,
       { parse_mode: "HTML" }
@@ -568,7 +560,6 @@ async function handleShowGiveaways(ctx: any) {
   for (const ga of gas) {
     const text =
       `🎁 <b>SỰ KIỆN TRI ÂN · ${ga.title.toUpperCase()}</b>\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `🏆 <b>Phần thưởng cao cấp:</b> <b>${ga.reward}</b>\n` +
       `👥 <b>Số lượng thành viên tham gia:</b> <b>${ga.participantCount}</b> người\n` +
       (ga.description ? `📝 <b>Chi tiết sự kiện:</b>\n${ga.description}\n\n` : `\n`) +
@@ -582,7 +573,6 @@ async function handleShowGiveaways(ctx: any) {
 async function handleShowGuide(ctx: any) {
   const guideText =
     `❖ <b>QUY TRÌNH GIAO DỊCH TỰ ĐỘNG · RINQ SHOP</b> ❖\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `Kính gửi Quý khách, RINQ SHOP vận hành hệ thống thanh toán trực tiếp tối giản, không cần nạp tiền giữ ví:\n\n` +
     `<b>BƯỚC 1: LỰA CHỌN SẢN PHẨM</b>\n` +
     `• Chọn mục <b>🗂 Xem sản phẩm</b> trên menu hoặc gõ lệnh <code>/menu</code>.\n` +
@@ -608,7 +598,6 @@ async function handleShowSupport(ctx: any) {
 
   await ctx.reply(
     `💬 <b>TRUNG TÂM CHĂM SÓC KHÁCH HÀNG · RINQ SHOP</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `Kính chào Quý khách, đội ngũ RINQ SHOP luôn sẵn sàng lắng nghe và giải đáp mọi yêu cầu của Quý khách:\n\n` +
     `• <b>Admin phụ trách:</b> <b>@${SUPPORT_USERNAME}</b>\n` +
     `• <b>Thời gian phản hồi:</b> Thường trực 24/7\n` +
@@ -658,7 +647,6 @@ async function showUserOrders(ctx: any, deletePrevious = false) {
   if (paidOrders.length === 0) {
     await ctx.reply(
       `📦 <b>LỊCH SỬ GIAO DỊCH · RINQ SHOP</b>\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `Kính chào Quý khách, hiện tại tài khoản chưa ghi nhận đơn hàng hoàn tất nào.\n` +
       `Kính mời Quý khách tham khảo các dịch vụ cao cấp tại mục <b>🗂 Xem sản phẩm</b> bên dưới:`,
       { parse_mode: "HTML", reply_markup: keyboard }
@@ -666,7 +654,7 @@ async function showUserOrders(ctx: any, deletePrevious = false) {
     return;
   }
 
-  let text = `📦 <b>10 ĐƠN HÀNG GẦN NHẤT CỦA QUÝ KHÁCH:</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+  let text = `📦 <b>10 ĐƠN HÀNG GẦN NHẤT CỦA QUÝ KHÁCH:</b>\n\n`;
 
   paidOrders.forEach((o, idx) => {
     const time = o.paidAt || o.createdAt;
@@ -682,7 +670,7 @@ async function showUserOrders(ctx: any, deletePrevious = false) {
     } else {
       text += `🔑 Dữ liệu: <i>(Đã bàn giao)</i>\n`;
     }
-    text += `---------------------------\n`;
+    text += `\n`;
   });
 
   text += `\n<blockquote>💡 <i>Chạm vào mã key/tài khoản để sao chép nhanh!</i></blockquote>`;
@@ -735,7 +723,6 @@ bot.callbackQuery(/^prod:(\d+)$/, async (ctx) => {
 
   const text =
     `❖ <b>${product.name.toUpperCase()}</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     priceLine +
     `• <b>Tình trạng:</b> ${stockStatusStr}\n` +
     `• <b>Hình thức giao dịch:</b> Giao tài nguyên tự động tức thì 24/7\n\n` +
@@ -842,7 +829,6 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
 
   const paymentText =
     `🧾 <b>HÓA ĐƠN ĐẶT HÀNG:</b> <code>${orderId}</code>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `• <b>Sản phẩm:</b> <b>${product.name}</b>\n` +
     `• <b>Số lượng:</b> <b>1 sản phẩm</b>\n` +
     discountNote +
@@ -853,7 +839,6 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
     `• Chủ tài khoản: <b>${BANK_ACCOUNT_NAME}</b>\n` +
     `• Số tiền: <code>${product.price}</code>\n` +
     `• Nội dung chuyển khoản: <code>${orderId}</code>\n\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
     `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
     `1. Quý khách quét mã <b>VietQR</b> phía trên hoặc chuyển khoản theo thông tin trên (chạm vào dòng STK hoặc Nội dung để tự động sao chép).\n` +
     `2. Xin vui lòng giữ <b>NGUYÊN</b> nội dung chuyển khoản là <code>${orderId}</code> để hệ thống tự động nhận diện.\n` +
@@ -931,7 +916,6 @@ bot.callbackQuery("inline_support", async (ctx) => {
 
   await ctx.reply(
     `💬 <b>TRUNG TÂM CHĂM SÓC KHÁCH HÀNG · RINQ SHOP</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `Kính chào Quý khách, đội ngũ RINQ SHOP luôn thường trực tiếp nhận và hỗ trợ Quý khách 24/7:\n\n` +
     `• <b>Admin hỗ trợ:</b> <b>@${SUPPORT_USERNAME}</b>\n` +
     `• <b>Đường dẫn kết nối:</b> https://t.me/${SUPPORT_USERNAME}\n` +
@@ -1001,7 +985,6 @@ bot.callbackQuery(/^coupon_info:(\d+)$/, async (ctx) => {
 
   const text =
     `🏷 <b>ÁP DỤNG MÃ ƯU ĐÃI · BƯỚC 1</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `• <b>Sản phẩm:</b> <b>${product.name}</b>\n` +
     `• <b>Đơn giá gốc:</b> <b>${formatVND(product.price)}</b> / sản phẩm\n` +
     `• <b>Tồn kho sẵn có:</b> <b>${stockCount} sản phẩm</b>\n\n` +
@@ -1064,7 +1047,6 @@ bot.callbackQuery(/^qty_coupon:(\d+):(\d+)$/, async (ctx) => {
   const totalBase = product.price * quantity;
   const text =
     `🏷 <b>ÁP DỤNG MÃ ƯU ĐÃI · BƯỚC 2</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `• <b>Sản phẩm:</b> <b>${product.name}</b>\n` +
     `• <b>Số lượng:</b> <b>${quantity} sản phẩm</b>\n` +
     `• <b>Tạm tính ban đầu:</b> <s>${formatVND(totalBase)}</s>\n\n` +
@@ -1124,7 +1106,6 @@ bot.callbackQuery(/^skip_coupon:(\d+):(\d+)$/, async (ctx) => {
 
   const paymentText =
     `🧾 <b>HÓA ĐƠN ĐẶT HÀNG:</b> <code>${orderId}</code>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `• <b>Sản phẩm:</b> <b>${product.name}</b>\n` +
     `• <b>Số lượng:</b> <b>${quantity} sản phẩm</b>\n` +
     `• <b>Tổng thanh toán:</b> <b>${formatVND(totalAmount)}</b>\n\n` +
@@ -1134,7 +1115,6 @@ bot.callbackQuery(/^skip_coupon:(\d+):(\d+)$/, async (ctx) => {
     `• Chủ tài khoản: <b>${BANK_ACCOUNT_NAME}</b>\n` +
     `• Số tiền: <code>${totalAmount}</code>\n` +
     `• Nội dung chuyển khoản: <code>${orderId}</code>\n\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
     `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
     `1. Quý khách quét mã <b>VietQR</b> phía trên hoặc chuyển khoản theo thông tin trên (chạm vào dòng STK hoặc Nội dung để tự động sao chép).\n` +
     `2. Xin vui lòng giữ <b>NGUYÊN</b> nội dung chuyển khoản là <code>${orderId}</code> để hệ thống tự động đối soát.\n` +
@@ -1285,7 +1265,6 @@ bot.on("message:text", async (ctx, next) => {
 
       await ctx.reply(
         `⚠️ <b>MÃ ƯU ĐÃI KHÔNG HỢP LỆ</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `• Mã Quý khách đã nhập: <code>${couponCode}</code>\n` +
         `• Nguyên nhân: <i>${val.error || "Mã không tồn tại hoặc đã hết hạn sử dụng"}</i>\n\n` +
         `Kính mời Quý khách <b>gửi lại mã khác</b>, hoặc bấm nút bên dưới để tiếp tục giao dịch:`,
@@ -1324,10 +1303,8 @@ bot.on("message:text", async (ctx, next) => {
 
     const paymentText =
       `✦ <b>ÁP DỤNG MÃ ƯU ĐÃI THÀNH CÔNG</b> ✦\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `🏷 <b>Mã ưu đãi:</b> <code>${couponCode}</code>\n` +
       `💵 <b>Mức chiết khấu:</b> <b>-${formatVND(val.discountAmount)}</b>\n` +
-      `---------------------------\n` +
       `🧾 <b>HÓA ĐƠN ĐẶT HÀNG:</b> <code>${orderId}</code>\n` +
       `📦 <b>Sản phẩm:</b> <b>${product.name}</b> (x${state.quantity})\n` +
       `💰 <b>Tổng thanh toán:</b> <b>${formatVND(finalPrice)}</b> (Đơn giá gốc: <s>${formatVND(baseTotal)}</s>)\n\n` +
@@ -1337,7 +1314,6 @@ bot.on("message:text", async (ctx, next) => {
       `• Chủ tài khoản: <b>${BANK_ACCOUNT_NAME}</b>\n` +
       `• Số tiền: <code>${finalPrice}</code>\n` +
       `• Nội dung chuyển khoản: <code>${orderId}</code>\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
       `1. Quý khách quét mã <b>VietQR</b> phía trên hoặc chuyển khoản đúng số tiền và nội dung.\n` +
       `2. Giữ NGUYÊN nội dung chuyển khoản là <code>${orderId}</code>.\n` +
@@ -1468,7 +1444,6 @@ bot.command("buy", async (ctx) => {
 
   const paymentText =
     `🧾 <b>HÓA ĐƠN ĐẶT HÀNG:</b> <code>${orderId}</code>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `• <b>Sản phẩm:</b> <b>${product.name}</b>\n` +
     (discountNote ? `${discountNote}` : "") +
     `• <b>Tổng thanh toán:</b> <b>${formatVND(finalPrice)}</b>\n\n` +
@@ -1478,7 +1453,6 @@ bot.command("buy", async (ctx) => {
     `• Chủ tài khoản: <b>${BANK_ACCOUNT_NAME}</b>\n` +
     `• Số tiền: <code>${finalPrice}</code>\n` +
     `• Nội dung chuyển khoản: <code>${orderId}</code>\n\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
     `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
     `1. Quý khách quét mã <b>VietQR</b> phía trên hoặc chuyển khoản đúng số tiền và nội dung.\n` +
     `2. Giữ NGUYÊN nội dung chuyển khoản là <code>${orderId}</code> để đối soát tự động.\n` +
@@ -1521,7 +1495,6 @@ bot.command("buy", async (ctx) => {
       .catch(() => {});
   }
 });
-
 
 // 16. Callback: Khách bấm thanh toán bằng số dư ví
 bot.callbackQuery(/^pay_balance:(DH[A-F0-9]+)$/, async (ctx) => {
@@ -1647,7 +1620,6 @@ bot.callbackQuery(/^pay_balance:(DH[A-F0-9]+)$/, async (ctx) => {
     if (ADMIN_TELEGRAM_ID) {
       const adminWalletMsg =
         `🔔 <b>[ĐƠN HÀNG MỚI · THANH TOÁN SỐ DƯ VÍ]</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
         `🧾 <b>Mã đơn:</b> <code>#${order.id}</code>\n` +
         `👤 <b>Khách hàng:</b> <b>${order.username ? `@${order.username}` : telegramId}</b> (<code>${telegramId}</code>)\n` +
         `📦 <b>Sản phẩm:</b> <b>${order.product?.name}</b> (x${qty})\n` +
@@ -2046,7 +2018,6 @@ async function renderWallet(ctx: any, deletePrevious = false, editInPlace = fals
 
   const walletText =
     `💳 <b>VÍ RINQ SHOP CỦA BẠN</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
     `👤 Chủ ví: <b>${ctx.from?.first_name || "Quý khách"}</b>\n` +
     `🆔 Mã định danh: <code>${telegramId}</code>\n` +
     `💰 <b>Số dư ví:</b> <b>${formatVND(balance)}</b>\n\n` +
@@ -2131,7 +2102,6 @@ async function handleDepositRequest(ctx: any, amount: number) {
 
   const depositText =
     `🧾 <b>HÓA ĐƠN NẠP TIỀN VÍ:</b> <code>${depositId}</code>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `• <b>Khách hàng:</b> <b>${ctx.from?.first_name || "Quý khách"}</b> (<code>${telegramId}</code>)\n` +
     `• <b>Số tiền nạp:</b> <b>${formatVND(amount)}</b>\n` +
     `• <b>Ưu đãi / Phí:</b> <b>Miễn phí (0đ)</b>\n` +
@@ -2142,7 +2112,6 @@ async function handleDepositRequest(ctx: any, amount: number) {
     `• Chủ tài khoản: <b>${BANK_ACCOUNT_NAME}</b>\n` +
     `• Số tiền: <code>${amount}</code>\n` +
     `• Nội dung chuyển khoản: <code>${depositId}</code>\n\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
     `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
     `1. Quý khách quét mã <b>VietQR</b> phía trên hoặc chuyển khoản theo thông tin trên (chạm vào dòng STK hoặc Nội dung để tự động sao chép).\n` +
     `2. Xin vui lòng giữ <b>NGUYÊN</b> nội dung chuyển khoản là <code>${depositId}</code> để hệ thống tự động cộng tiền.\n` +
@@ -2198,7 +2167,7 @@ bot.callbackQuery("nap_custom", async (ctx) => {
   const telegramId = String(ctx.from?.id);
   pendingDepositUsers.add(telegramId);
   await ctx.reply(
-    `✏️ <b>NẠP TIỀN VÍ TỰ CHỌN:</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `✏️ <b>NẠP TIỀN VÍ TỰ CHỌN:</b>\n\n` +
     `Quý khách chỉ cần <b>gõ số tiền và gửi trực tiếp vào khung chat</b> này:\n\n` +
     `• Ví dụ: <code>30000</code> hoặc <code>30k</code>\n` +
     `• Ví dụ: <code>150k</code> hoặc <code>500000</code>\n\n` +
@@ -2341,7 +2310,6 @@ bot.command("flashsale", async (ctx) => {
 
     await ctx.reply(
       `⚡ <b>QUẢN LÝ FLASH SALE · RINQ SHOP</b>\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `${currentStatus}\n\n` +
       `📌 <b>Cú pháp kích hoạt:</b>\n` +
       `• <code>/flashsale &lt;%_giảm&gt; &lt;số_giờ&gt; [tên_sự_kiện]</code>\n` +
@@ -2367,7 +2335,6 @@ bot.command("flashsale", async (ctx) => {
 
   await ctx.reply(
     `⚡ <b>XÁC NHẬN KÍCH HOẠT FLASH SALE</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `• Mức giảm giá: <b>${discountPercent}%</b>\n` +
     `• Thời lượng: <b>${hours} giờ</b>\n` +
     `• Tên sự kiện: <b>${customTitle}</b>\n\n` +
@@ -2406,7 +2373,6 @@ bot.callbackQuery("fs_add_note", async (ctx) => {
   adminWaitingFlashSaleNote.add(senderId);
   await ctx.reply(
     `✏️ <b>NHẬP NỘI DUNG GHI CHÚ / THÔNG ĐIỆP:</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `Quý khách vui lòng gửi tin nhắn nội dung thông điệp gửi tới khách hàng vào đây:\n\n` +
     `• Ví dụ: <i>"Tri ân khách hàng cuối tuần, số lượng tài nguyên có hạn!"</i>\n\n` +
     `<i>(Nhập 'bo qua' để kích hoạt không ghi chú, hoặc 'huy' để hủy)</i>`,
@@ -2435,7 +2401,6 @@ async function launchFlashSaleAndNotify(
 
   await ctx.reply(
     `🔥 <b>ĐÃ KÍCH HOẠT FLASH SALE THÀNH CÔNG!</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `• Sự kiện: <b>${fsConfig.title}</b>\n` +
     `• Mức giảm giá: <b>${fsConfig.discountPercent}%</b>\n` +
     `• Thời hạn: <b>${hours} giờ</b> (Hết hạn lúc: ${new Date(fsConfig.expiresAt).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })})\n` +
@@ -2450,7 +2415,6 @@ async function launchFlashSaleAndNotify(
     const noteBlock = note ? `\n\n📝 <b>Thông điệp từ Shop:</b>\n<i>${note}</i>` : "";
     const broadcastText =
       `🔥 <b>${fsConfig.title.toUpperCase()} · RINQ SHOP</b> 🔥\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `Kính gửi Quý khách, cửa hàng đang mở chương trình ưu đãi đặc biệt:\n\n` +
       `💥 Giảm ngay <b>${fsConfig.discountPercent}%</b> cho tất cả các gói dịch vụ!\n` +
       `⏱ Áp dụng trong <b>${hours} giờ</b> tới (hết hạn: ${new Date(fsConfig.expiresAt).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}).` +
@@ -2547,3 +2511,4 @@ bot.start({
     }, 30 * 60 * 1000);
   },
 });
+
