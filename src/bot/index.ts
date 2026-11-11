@@ -650,6 +650,52 @@ bot.command(["help", "huongdan"], handleShowGuide);
 bot.hears(["💬 Liên hệ hỗ trợ", "🎧 Liên hệ hỗ trợ"], handleShowSupport);
 bot.command(["support", "admin"], handleShowSupport);
 
+// Helper tạo nội dung file text đơn hàng để tải xuống
+function generateOrderTextFile(orders: any[], userTelegramId: string, username?: string | null): string {
+  const lineSep = "=".repeat(56);
+  const subSep = "-".repeat(56);
+  let content = `${lineSep}\n`;
+  content += `               RINQ SHOP - BÀN GIAO ĐƠN HÀNG\n`;
+  content += `${lineSep}\n`;
+  content += `Khách hàng: ${username ? `@${username}` : userTelegramId} (ID: ${userTelegramId})\n`;
+  content += `Thời gian xuất file: ${new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}\n`;
+  content += `Tổng số đơn: ${orders.length} đơn hàng\n`;
+  content += `${lineSep}\n\n`;
+
+  orders.forEach((o, idx) => {
+    const time = o.paidAt || o.createdAt;
+    const timeStr = new Date(time).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+    content += `[ĐƠN HÀNG #${idx + 1}]\n`;
+    content += `• Mã đơn hàng: #${o.id}\n`;
+    content += `• Sản phẩm: ${o.product?.name || "N/A"}\n`;
+    content += `• Số lượng: ${o.quantity || (o.stocks?.length ?? 1)} sản phẩm\n`;
+    content += `• Tổng thanh toán: ${Number(o.totalAmount || 0).toLocaleString("vi-VN")} đ\n`;
+    content += `• Thời gian hoàn tất: ${timeStr}\n`;
+    content += `• Trạng thái: ${o.status === "PAID" ? "Đã thanh toán & Bàn giao" : o.status}\n`;
+    content += `\n${subSep}\n`;
+    content += `TÀI NGUYÊN / TÀI KHOẢN BÀN GIAO:\n`;
+    content += `${subSep}\n`;
+    if (o.stocks && o.stocks.length > 0) {
+      o.stocks.forEach((s: any, sIdx: number) => {
+        content += `#${sIdx + 1}: ${decryptStock(s.data)}\n`;
+      });
+    } else {
+      content += `(Tài nguyên đã được hệ thống bàn giao)\n`;
+    }
+    if (o.product?.warranty?.trim()) {
+      content += `\nChính sách bảo hành:\n${o.product.warranty.trim()}\n`;
+    }
+    content += `\n${lineSep}\n\n`;
+  });
+
+  content += `HỖ TRỢ & BẢO HÀNH:\n`;
+  content += `• Admin CSKH Telegram: @${SUPPORT_USERNAME}\n`;
+  content += `• Kênh hỗ trợ trực tuyến 24/7: https://t.me/${SUPPORT_USERNAME}\n`;
+  content += `Xin chân thành cảm ơn Quý khách đã tin tưởng và đồng hành cùng RINQ SHOP!\n`;
+
+  return content;
+}
+
 // Helper hiển thị lịch sử đơn hàng
 async function showUserOrders(ctx: any, deletePrevious = false) {
   if (deletePrevious) {
@@ -670,11 +716,12 @@ async function showUserOrders(ctx: any, deletePrevious = false) {
     },
   });
 
-  const keyboard = new InlineKeyboard().text("🔙 Quay lại danh mục", "menu_products");
+  const keyboard = new InlineKeyboard();
 
   if (paidOrders.length === 0) {
+    keyboard.text("🔙 Quay lại danh mục", "menu_products");
     await ctx.reply(
-      `📦 <b>LỊCH SỬ GIAO DỊCH · RINQ SHOP</b>\n` +
+      `📦 <b>LỊCH SỬ GIAO DỊCH · RINQ SHOP</b>\n\n` +
       `Kính chào Quý khách, hiện tại tài khoản chưa ghi nhận đơn hàng hoàn tất nào.\n` +
       `Kính mời Quý khách tham khảo các dịch vụ cao cấp tại mục <b>🗂 Xem sản phẩm</b> bên dưới:`,
       { parse_mode: "HTML", reply_markup: keyboard }
@@ -701,7 +748,27 @@ async function showUserOrders(ctx: any, deletePrevious = false) {
     text += `\n`;
   });
 
-  text += `\n<blockquote>💡 <i>Chạm vào mã key/tài khoản để sao chép nhanh!</i></blockquote>`;
+  text += `💡 <i>Chạm vào mã key/tài khoản để sao chép nhanh, hoặc bấm các nút bên dưới để tải file đơn hàng về máy:</i>`;
+
+  // Thêm nút tải file cho từng đơn (1-2 nút mỗi hàng)
+  for (let i = 0; i < paidOrders.length; i += 2) {
+    const o1 = paidOrders[i];
+    keyboard.text(`📥 Tải file đơn #${i + 1}`, `dl_order:${o1.id}`);
+    if (i + 1 < paidOrders.length) {
+      const o2 = paidOrders[i + 1];
+      keyboard.text(`📥 Tải file đơn #${i + 2}`, `dl_order:${o2.id}`);
+    }
+    keyboard.row();
+  }
+
+  if (paidOrders.length >= 2) {
+    keyboard.text("📥 Tải toàn bộ đơn hàng (.txt)", "dl_all_orders").row();
+  }
+
+  keyboard
+    .text("🔄 Làm mới", "inline_my_orders")
+    .text("🔙 Về danh mục", "menu_products")
+    .row();
 
   await ctx.reply(text, { parse_mode: "HTML", reply_markup: keyboard });
 }
@@ -935,6 +1002,70 @@ bot.callbackQuery("refresh_catalog", async (ctx) => {
 bot.callbackQuery("inline_my_orders", async (ctx) => {
   await ctx.answerCallbackQuery().catch(() => {});
   await showUserOrders(ctx, true);
+});
+
+// Callback tải file của 1 đơn hàng cụ thể
+bot.callbackQuery(/^dl_order:(.+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery({ text: "⏳ Đang tạo file đơn hàng..." }).catch(() => {});
+  const orderId = ctx.match[1];
+  const telegramId = String(ctx.from?.id);
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { product: true, stocks: true },
+  });
+
+  if (!order || (String(order.telegramId) !== telegramId && telegramId !== ADMIN_TELEGRAM_ID)) {
+    await ctx.reply("❌ Không tìm thấy đơn hàng hoặc bạn không có quyền tải đơn này.");
+    return;
+  }
+
+  const fileContent = generateOrderTextFile([order], telegramId, ctx.from?.username);
+  const shortId = order.id.slice(0, 12);
+  const fileName = `RINQ_${shortId}.txt`;
+
+  await ctx.replyWithDocument(
+    new InputFile(Buffer.from(fileContent, "utf-8"), fileName),
+    {
+      caption:
+        `📥 <b>FILE TÀI NGUYÊN ĐƠN HÀNG #${order.id}</b>\n\n` +
+        `• <b>Sản phẩm:</b> ${order.product?.name}\n` +
+        `• <b>Trạng thái:</b> Đã xuất file text đính kèm <code>${fileName}</code>\n\n` +
+        `<i>Quý khách có thể mở và lưu trữ file offline an toàn!</i>`,
+      parse_mode: "HTML",
+    }
+  );
+});
+
+// Callback tải file toàn bộ đơn hàng đã mua
+bot.callbackQuery("dl_all_orders", async (ctx) => {
+  await ctx.answerCallbackQuery({ text: "⏳ Đang tổng hợp các đơn hàng..." }).catch(() => {});
+  const telegramId = String(ctx.from?.id);
+
+  const paidOrders = await prisma.order.findMany({
+    where: { telegramId, status: "PAID" },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: { product: true, stocks: true },
+  });
+
+  if (paidOrders.length === 0) {
+    await ctx.reply("❌ Quý khách chưa có đơn hàng hoàn tất nào để xuất file.");
+    return;
+  }
+
+  const fileContent = generateOrderTextFile(paidOrders, telegramId, ctx.from?.username);
+  const fileName = `RINQ_DON_HANG_${telegramId}.txt`;
+
+  await ctx.replyWithDocument(
+    new InputFile(Buffer.from(fileContent, "utf-8"), fileName),
+    {
+      caption:
+        `📥 <b>FILE TỔNG HỢP ${paidOrders.length} ĐƠN HÀNG ĐÃ MUA</b>\n\n` +
+        `<i>Toàn bộ mã đơn, tài nguyên/tài khoản và chính sách bảo hành đã được xuất vào file đính kèm.</i>`,
+      parse_mode: "HTML",
+    }
+  );
 });
 
 // 9. Callback Query: Hỗ trợ trỏ tới Admin
@@ -1655,6 +1786,7 @@ bot.callbackQuery(/^pay_balance:(DH[A-F0-9]+)$/, async (ctx) => {
       {
         parse_mode: "HTML",
         reply_markup: new InlineKeyboard()
+          .text("📥 Tải file đơn (.txt)", `dl_order:${order.id}`)
           .text("🛍 Mua tiếp", "menu_products")
           .row()
           .url("💬 Hỗ trợ Admin (@rinq_hotro)", "https://t.me/rinq_hotro"),

@@ -509,11 +509,12 @@ export async function processApi5sTransaction(tx: Api5sTransaction): Promise<{
     const deliveryKeyboard = {
       inline_keyboard: [
         [
-          { text: "🛒 Tiếp tục mua sắm", callback_data: "menu_products" },
-          { text: "📦 Lịch sử đơn hàng", callback_data: "inline_my_orders" },
+          { text: "📥 Tải file đơn (.txt)", callback_data: `dl_order:${result.order.id}` },
+          { text: "📦 Đơn của tôi", callback_data: "inline_my_orders" },
         ],
         [
-          { text: "💬 Hỗ trợ bảo hành (@rinq_hotro)", url: "https://t.me/rinq_hotro" },
+          { text: "🛒 Tiếp tục mua sắm", callback_data: "menu_products" },
+          { text: "💬 Hỗ trợ (@rinq_hotro)", url: "https://t.me/rinq_hotro" },
         ],
       ],
     };
