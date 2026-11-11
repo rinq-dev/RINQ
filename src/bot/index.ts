@@ -518,6 +518,41 @@ bot.command("start", async (ctx) => {
     addSubscriber(String(ctx.from.id), ctx.from.username, ctx.from.first_name).catch(() => {});
   }
 
+  const rawName = ctx.from?.first_name || "";
+  const customerName = rawName ? `Quý khách <b>${escapeHtml(rawName)}</b>` : "<b>Quý khách</b>";
+  const welcomeText =
+    `✦ <b>RINQ SHOP · HỆ THỐNG PHÂN PHỐI TÀI NGUYÊN SỐ</b> ✦\n\n` +
+    `Kính chào ${customerName},\n\n` +
+    `RINQ SHOP trân trọng đón tiếp Quý khách đến với dịch vụ cung cấp tài khoản, bản quyền và tài nguyên số cao cấp tự động 24/7.\n\n` +
+    `💎 <b>Đặc quyền dịch vụ tại RINQ SHOP:</b>\n` +
+    `• <b>Thanh toán tức thì:</b> Giao dịch trực tiếp qua VietQR SePay, không giam vốn giữ ví.\n` +
+    `• <b>Giao hàng siêu tốc:</b> Trả tài nguyên tự động sau 3 - 5 giây xác nhận.\n` +
+    `• <b>Chính sách bảo hành:</b> Cam kết hỗ trợ 1:1 tận tâm và minh bạch.\n\n` +
+    `Xin kính mời Quý khách tham khảo danh mục sản phẩm bên dưới 👇`;
+
+  const bannerPath = path.join(process.cwd(), "public", "banner.jpg");
+  const logoPath = path.join(process.cwd(), "public", "logo.jpg");
+  const imagePath = fs.existsSync(bannerPath) ? bannerPath : fs.existsSync(logoPath) ? logoPath : null;
+
+  if (imagePath) {
+    try {
+      await ctx.replyWithPhoto(new InputFile(imagePath), {
+        caption: welcomeText,
+        parse_mode: "HTML",
+        reply_markup: mainMenuKeyboard,
+      });
+      await renderCatalog(ctx);
+      return;
+    } catch (e) {
+      console.error("Lỗi gửi banner start:", e);
+    }
+  }
+
+  await ctx.reply(welcomeText, {
+    parse_mode: "HTML",
+    reply_markup: mainMenuKeyboard,
+  });
+
   await renderCatalog(ctx);
 });
 
