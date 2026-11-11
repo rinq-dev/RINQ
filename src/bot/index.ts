@@ -70,6 +70,17 @@ function formatVND(amount: number): string {
   return amount.toLocaleString("vi-VN") + " đ";
 }
 
+// Helper: Escape HTML cho chuỗi an toàn
+function escapeHtml(str: string): string {
+  return str.replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[c] || c));
+}
+
 // Helper: Tải ảnh mã QR (Ưu tiên SePay QR phản hồi tức thì, fallback VietQR)
 async function fetchQRCodeBuffer(
   bankId: string,
@@ -276,14 +287,12 @@ async function renderCatalog(ctx: any, deletePrevious = false, page = 1) {
 
   const messageText =
     flashSaleBanner +
-    `❖ <b>RINQ SHOP · DANH MỤC DỊCH VỤ CAO CẤP</b> ❖\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `Hệ thống hiện có <b>${categoriesMap.size}</b> danh mục với <b>${totalProducts}</b> gói sản phẩm:\n` +
-    `• Tình trạng: 🟢 <b>${inStockCount}</b> sẵn có  |  🔴 <b>${outOfStockCount}</b> tạm hết\n` +
-    `• Trạng thái hệ thống: <b>Trực tuyến 24/7</b>\n\n` +
-    `💡 <i>Muốn tìm sản phẩm nào, Quý khách cứ <b>gõ trực tiếp tên sản phẩm vào khung chat</b> (Ví dụ: <code>gemini</code>, <code>canva</code>, <code>capcut</code>...).</i>\n\n` +
-    `Kính mời Quý khách bấm chọn <b>Danh mục</b> bên dưới để xem chi tiết:` +
-    `\n\n<blockquote>⏱ <i>Thời gian đồng bộ: ${timeStr} · ${dateStr} (Giờ Việt Nam)</i></blockquote>`;
+    `🛒 <b>RINQ STORE · DANH MỤC SẢN PHẨM</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n` +
+    `📦 <b>${categoriesMap.size}</b> danh mục  •  🟢 <b>${inStockCount}</b> sẵn có  •  🔴 <b>${outOfStockCount}</b> tạm hết\n\n` +
+    `🔍 <i>Mẹo: Gõ trực tiếp tên sản phẩm vào khung chat để tìm nhanh (vd: <code>gemini</code>, <code>canva</code>, <code>claude</code>...)\n` +
+    `👇 Bấm vào danh mục bên dưới để xem chi tiết:</i>\n\n` +
+    `<blockquote>⏱ <i>Cập nhật: ${timeStr} · ${dateStr}</i></blockquote>`;
 
   if (!deletePrevious && ctx.callbackQuery?.message) {
     try {
@@ -349,10 +358,11 @@ async function handleSearchProducts(ctx: any, query: string) {
       .row()
       .url(`💬 Nhờ Admin tìm giúp (@${SUPPORT_USERNAME})`, `https://t.me/${SUPPORT_USERNAME}`);
 
+    const safeQ = escapeHtml(rawQ);
     await ctx.reply(
-      `🔍 <b>TÌM KIẾM SẢN PHẨM:</b> "<code>${rawQ}</code>"\n` +
+      `🔍 <b>TÌM KIẾM SẢN PHẨM:</b> "<code>${safeQ}</code>"\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `❌ Tiếc quá, không tìm thấy sản phẩm nào khớp với từ khóa "<b>${rawQ}</b>".\n\n` +
+      `❌ Tiếc quá, không tìm thấy sản phẩm nào khớp với từ khóa "<b>${safeQ}</b>".\n\n` +
       `💡 <i>Quý khách thử tìm từ ngắn hơn (Ví dụ: <code>gemini</code>, <code>canva</code>, <code>capcut</code>, <code>chatgpt</code>...) hoặc bấm nút bên dưới để xem toàn bộ danh mục:</i>`,
       { parse_mode: "HTML", reply_markup: inlineKeyboard }
     );
@@ -383,8 +393,9 @@ async function handleSearchProducts(ctx: any, query: string) {
 
   inlineKeyboard.text("🔙 Về danh mục chính", "menu_products").row();
 
+  const safeQ = escapeHtml(rawQ);
   await ctx.reply(
-    `🔍 <b>KẾT QUẢ TÌM KIẾM CHO:</b> "<code>${rawQ}</code>"\n` +
+    `🔍 <b>KẾT QUẢ TÌM KIẾM CHO:</b> "<code>${safeQ}</code>"\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `Tìm thấy <b>${matched.length}</b> sản phẩm phù hợp.\n` +
     `<i>Kính mời Quý khách bấm vào sản phẩm bên dưới để xem chi tiết & đặt mua:</i>`,
@@ -511,34 +522,28 @@ bot.command("start", async (ctx) => {
     addSubscriber(String(ctx.from.id), ctx.from.username, ctx.from.first_name).catch(() => {});
   }
 
-  const customerName = ctx.from?.first_name ? `Quý khách <b>${ctx.from.first_name}</b>` : "<b>Quý khách</b>";
-  const welcomeText =
-    `✦ <b>RINQ SHOP · HỆ THỐNG PHÂN PHỐI TÀI NGUYÊN SỐ</b> ✦\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `Kính chào ${customerName},\n\n` +
-    `RINQ SHOP trân trọng đón tiếp Quý khách đến với dịch vụ cung cấp tài khoản, bản quyền và tài nguyên số cao cấp tự động 24/7.\n\n` +
-    `💎 <b>Đặc quyền dịch vụ tại RINQ SHOP:</b>\n` +
-    `• <b>Thanh toán tức thì:</b> Giao dịch trực tiếp qua VietQR SePay, không giam vốn giữ ví.\n` +
-    `• <b>Giao hàng siêu tốc:</b> Trả tài nguyên tự động sau 3 - 5 giây xác nhận.\n` +
-    `• <b>Chính sách bảo hành:</b> Cam kết hỗ trợ 1:1 tận tâm và minh bạch.\n\n` +
-    `Xin kính mời Quý khách tham khảo danh mục sản phẩm bên dưới 👇`;
+  const tgId = ctx.from?.id ? String(ctx.from.id) : "";
+  const firstName = escapeHtml(ctx.from?.first_name || "bạn");
+  let balance = 0;
+  let orderCount = 0;
 
-  const logoPath = path.join(process.cwd(), "public", "logo.jpg");
-  if (fs.existsSync(logoPath)) {
-    try {
-      await ctx.replyWithPhoto(new InputFile(logoPath), {
-        caption: welcomeText,
-        parse_mode: "HTML",
-        reply_markup: mainMenuKeyboard,
-      });
-      await renderCatalog(ctx);
-      return;
-    } catch (e) {
-      console.error("Lỗi gửi ảnh logo start:", e);
-    }
+  if (tgId) {
+    const [userRec, count] = await Promise.all([
+      prisma.telegramUser.findUnique({ where: { id: tgId }, select: { balance: true } }).catch(() => null),
+      prisma.order.count({ where: { telegramId: tgId, status: "PAID" } }).catch(() => 0),
+    ]);
+    balance = userRec?.balance || 0;
+    orderCount = count || 0;
   }
 
-  await ctx.reply(welcomeText, {
+  const welcomeHeader =
+    `💎 <b>RINQ STORE · HỆ THỐNG DỊCH VỤ SỐ 24/7</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n` +
+    `👋 Xin chào <b>${firstName}</b> (<code>${tgId}</code>)\n` +
+    `💰 Số dư ví: <b>${formatVND(balance)}</b>  •  📦 Đã mua: <b>${orderCount} đơn</b>\n` +
+    `⚡ <i>Thanh toán VietQR tự động · Giao key/acc sau 3 giây</i>`;
+
+  await ctx.reply(welcomeHeader, {
     parse_mode: "HTML",
     reply_markup: mainMenuKeyboard,
   });
