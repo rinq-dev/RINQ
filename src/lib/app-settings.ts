@@ -34,10 +34,11 @@ export function invalidateAppSettingsCache() {
 }
 
 export async function getPaymentSettings() {
-  const saved = await getAppSettings(["BANK_ID", "BANK_ACCOUNT_NO", "BANK_ACCOUNT_NAME"]);
+  const saved = await getAppSettings(["BANK_ID", "BANK_ACCOUNT_NO", "BANK_ACCOUNT_NAME", "API5S_ACB_TOKEN"]);
   return {
-    bankId: saved.BANK_ID || process.env.BANK_ID || "MB",
-    accountNo: saved.BANK_ACCOUNT_NO || process.env.BANK_ACCOUNT_NO || "",
-    accountName: saved.BANK_ACCOUNT_NAME || process.env.BANK_ACCOUNT_NAME || "",
+    bankId: saved.BANK_ID || process.env.BANK_ID || "ACB",
+    accountNo: saved.BANK_ACCOUNT_NO || process.env.BANK_ACCOUNT_NO || "28753551",
+    accountName: saved.BANK_ACCOUNT_NAME || process.env.BANK_ACCOUNT_NAME || "NGUYEN TAI PHAT",
+    api5sToken: saved.API5S_ACB_TOKEN || process.env.API5S_ACB_TOKEN || "3018993f1aa9b3f0c2c4d51bd97d2340",
   };
 }

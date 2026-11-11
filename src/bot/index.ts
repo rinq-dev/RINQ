@@ -24,6 +24,8 @@ import {
   calculateFlashSalePrice,
   formatRemainingTime,
 } from "../lib/flash-sale";
+import { checkAndProcessApi5sPayments } from "../lib/api5s";
+import { getPaymentSettings } from "../lib/app-settings";
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 if (!BOT_TOKEN) {
@@ -53,10 +55,24 @@ function normalizeBankId(bank: string): string {
   return bank.trim();
 }
 
-const RAW_BANK_ID = process.env.BANK_ID || "MB";
+const RAW_BANK_ID = process.env.BANK_ID || "ACB";
 const BANK_ID = normalizeBankId(RAW_BANK_ID);
-const BANK_ACCOUNT_NO = process.env.BANK_ACCOUNT_NO || "0123456789";
-const BANK_ACCOUNT_NAME = process.env.BANK_ACCOUNT_NAME || "SHOP ADMIN";
+const BANK_ACCOUNT_NO = process.env.BANK_ACCOUNT_NO || "28753551";
+const BANK_ACCOUNT_NAME = process.env.BANK_ACCOUNT_NAME || "NGUYEN TAI PHAT";
+
+// Lấy thông tin thanh toán ngân hàng mới nhất từ DB / env
+async function getDynamicBankInfo() {
+  try {
+    const s = await getPaymentSettings();
+    return {
+      bankId: normalizeBankId(s.bankId || BANK_ID),
+      accountNo: s.accountNo || BANK_ACCOUNT_NO,
+      accountName: s.accountName || BANK_ACCOUNT_NAME,
+    };
+  } catch {
+    return { bankId: BANK_ID, accountNo: BANK_ACCOUNT_NO, accountName: BANK_ACCOUNT_NAME };
+  }
+}
 
 // 1. Menu ReplyKeyboard cố định dưới đáy
 const mainMenuKeyboard = new Keyboard()
@@ -525,7 +541,7 @@ bot.command("start", async (ctx) => {
     `Kính chào ${customerName},\n\n` +
     `RINQ SHOP trân trọng đón tiếp Quý khách đến với dịch vụ cung cấp tài khoản, bản quyền và tài nguyên số cao cấp tự động 24/7.\n\n` +
     `💎 <b>Đặc quyền dịch vụ tại RINQ SHOP:</b>\n` +
-    `• <b>Thanh toán tức thì:</b> Giao dịch trực tiếp qua VietQR SePay, không giam vốn giữ ví.\n` +
+    `• <b>Thanh toán tức thì:</b> Giao dịch trực tiếp qua VietQR ACB tự động, không giam vốn giữ ví.\n` +
     `• <b>Giao hàng siêu tốc:</b> Trả tài nguyên tự động sau 3 - 5 giây xác nhận.\n` +
     `• <b>Chính sách bảo hành:</b> Cam kết hỗ trợ 1:1 tận tâm và minh bạch.\n\n` +
     `Xin kính mời Quý khách tham khảo danh mục sản phẩm bên dưới 👇`;
@@ -826,13 +842,15 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
     },
   });
 
+  const bank = await getDynamicBankInfo();
+
   // Tải ảnh mã QR qua buffer
   const qrBuffer = await fetchQRCodeBuffer(
-    BANK_ID,
-    BANK_ACCOUNT_NO,
+    bank.bankId,
+    bank.accountNo,
     finalPrice,
     orderId,
-    BANK_ACCOUNT_NAME
+    bank.accountName
   );
 
   const discountNote = flashSale
@@ -846,10 +864,10 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
     discountNote +
     `• <b>Tổng thanh toán:</b> <b>${formatVND(finalPrice)}</b>\n\n` +
     `🏦 <b>THÔNG TIN CHUYỂN KHOẢN TỰ ĐỘNG:</b>\n` +
-    `• Ngân hàng: <b>${BANK_ID}</b>\n` +
-    `• Số tài khoản: <code>${BANK_ACCOUNT_NO}</code>\n` +
-    `• Chủ tài khoản: <b>${BANK_ACCOUNT_NAME}</b>\n` +
-    `• Số tiền: <code>${product.price}</code>\n` +
+    `• Ngân hàng: <b>${bank.bankId}</b>\n` +
+    `• Số tài khoản: <code>${bank.accountNo}</code>\n` +
+    `• Chủ tài khoản: <b>${bank.accountName}</b>\n` +
+    `• Số tiền: <code>${finalPrice}</code>\n` +
     `• Nội dung chuyển khoản: <code>${orderId}</code>\n\n` +
     `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
     `1. Quý khách quét mã <b>VietQR</b> phía trên hoặc chuyển khoản theo thông tin trên (chạm vào dòng STK hoặc Nội dung để tự động sao chép).\n` +
@@ -860,8 +878,10 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
   const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
   const userBalance = userRec?.balance || 0;
 
-  const keyboard = new InlineKeyboard();
-  if (userBalance >= product.price) {
+  const keyboard = new InlineKeyboard()
+    .text("⚡ Kiểm tra giao dịch", `check_order:${orderId}`)
+    .row();
+  if (userBalance >= finalPrice) {
     keyboard.text(`💳 Thanh toán bằng Số Dư Ví (${userBalance.toLocaleString("vi-VN")}đ)`, `pay_balance:${orderId}`).row();
   }
   keyboard.text("🔙 Hủy / Về danh mục", "menu_products");
@@ -1108,12 +1128,14 @@ bot.callbackQuery(/^skip_coupon:(\d+):(\d+)$/, async (ctx) => {
     },
   });
 
+  const bank = await getDynamicBankInfo();
+
   const qrBuffer = await fetchQRCodeBuffer(
-    BANK_ID,
-    BANK_ACCOUNT_NO,
+    bank.bankId,
+    bank.accountNo,
     totalAmount,
     orderId,
-    BANK_ACCOUNT_NAME
+    bank.accountName
   );
 
   const paymentText =
@@ -1122,9 +1144,9 @@ bot.callbackQuery(/^skip_coupon:(\d+):(\d+)$/, async (ctx) => {
     `• <b>Số lượng:</b> <b>${quantity} sản phẩm</b>\n` +
     `• <b>Tổng thanh toán:</b> <b>${formatVND(totalAmount)}</b>\n\n` +
     `🏦 <b>THÔNG TIN CHUYỂN KHOẢN TỰ ĐỘNG:</b>\n` +
-    `• Ngân hàng: <b>${BANK_ID}</b>\n` +
-    `• Số tài khoản: <code>${BANK_ACCOUNT_NO}</code>\n` +
-    `• Chủ tài khoản: <b>${BANK_ACCOUNT_NAME}</b>\n` +
+    `• Ngân hàng: <b>${bank.bankId}</b>\n` +
+    `• Số tài khoản: <code>${bank.accountNo}</code>\n` +
+    `• Chủ tài khoản: <b>${bank.accountName}</b>\n` +
     `• Số tiền: <code>${totalAmount}</code>\n` +
     `• Nội dung chuyển khoản: <code>${orderId}</code>\n\n` +
     `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
@@ -1136,7 +1158,9 @@ bot.callbackQuery(/^skip_coupon:(\d+):(\d+)$/, async (ctx) => {
   const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
   const userBalance = userRec?.balance || 0;
 
-  const keyboard = new InlineKeyboard();
+  const keyboard = new InlineKeyboard()
+    .text("⚡ Kiểm tra giao dịch", `check_order:${orderId}`)
+    .row();
   if (userBalance >= totalAmount) {
     keyboard.text(`💳 Thanh toán bằng Số Dư Ví (${userBalance.toLocaleString("vi-VN")}đ)`, `pay_balance:${orderId}`).row();
   }
@@ -1305,12 +1329,14 @@ bot.on("message:text", async (ctx, next) => {
       },
     });
 
+    const bank = await getDynamicBankInfo();
+
     const qrBuffer = await fetchQRCodeBuffer(
-      BANK_ID,
-      BANK_ACCOUNT_NO,
+      bank.bankId,
+      bank.accountNo,
       finalPrice,
       orderId,
-      BANK_ACCOUNT_NAME
+      bank.accountName
     );
 
     const paymentText =
@@ -1321,9 +1347,9 @@ bot.on("message:text", async (ctx, next) => {
       `📦 <b>Sản phẩm:</b> <b>${product.name}</b> (x${state.quantity})\n` +
       `💰 <b>Tổng thanh toán:</b> <b>${formatVND(finalPrice)}</b> (Đơn giá gốc: <s>${formatVND(baseTotal)}</s>)\n\n` +
       `🏦 <b>THÔNG TIN CHUYỂN KHOẢN TỰ ĐỘNG:</b>\n` +
-      `• Ngân hàng: <b>${BANK_ID}</b>\n` +
-      `• Số tài khoản: <code>${BANK_ACCOUNT_NO}</code>\n` +
-      `• Chủ tài khoản: <b>${BANK_ACCOUNT_NAME}</b>\n` +
+      `• Ngân hàng: <b>${bank.bankId}</b>\n` +
+      `• Số tài khoản: <code>${bank.accountNo}</code>\n` +
+      `• Chủ tài khoản: <b>${bank.accountName}</b>\n` +
       `• Số tiền: <code>${finalPrice}</code>\n` +
       `• Nội dung chuyển khoản: <code>${orderId}</code>\n\n` +
       `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
@@ -1335,7 +1361,9 @@ bot.on("message:text", async (ctx, next) => {
     const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
     const userBalance = userRec?.balance || 0;
 
-    const keyboard = new InlineKeyboard();
+    const keyboard = new InlineKeyboard()
+      .text("⚡ Kiểm tra giao dịch", `check_order:${orderId}`)
+      .row();
     if (userBalance >= finalPrice) {
       keyboard.text(`💳 Thanh toán bằng Số Dư Ví (${userBalance.toLocaleString("vi-VN")}đ)`, `pay_balance:${orderId}`).row();
     }
@@ -1446,12 +1474,14 @@ bot.command("buy", async (ctx) => {
     },
   });
 
+  const bank = await getDynamicBankInfo();
+
   const qrBuffer = await fetchQRCodeBuffer(
-    BANK_ID,
-    BANK_ACCOUNT_NO,
+    bank.bankId,
+    bank.accountNo,
     finalPrice,
     orderId,
-    BANK_ACCOUNT_NAME
+    bank.accountName
   );
 
   const paymentText =
@@ -1460,9 +1490,9 @@ bot.command("buy", async (ctx) => {
     (discountNote ? `${discountNote}` : "") +
     `• <b>Tổng thanh toán:</b> <b>${formatVND(finalPrice)}</b>\n\n` +
     `🏦 <b>THÔNG TIN CHUYỂN KHOẢN TỰ ĐỘNG:</b>\n` +
-    `• Ngân hàng: <b>${BANK_ID}</b>\n` +
-    `• Số tài khoản: <code>${BANK_ACCOUNT_NO}</code>\n` +
-    `• Chủ tài khoản: <b>${BANK_ACCOUNT_NAME}</b>\n` +
+    `• Ngân hàng: <b>${bank.bankId}</b>\n` +
+    `• Số tài khoản: <code>${bank.accountNo}</code>\n` +
+    `• Chủ tài khoản: <b>${bank.accountName}</b>\n` +
     `• Số tiền: <code>${finalPrice}</code>\n` +
     `• Nội dung chuyển khoản: <code>${orderId}</code>\n\n` +
     `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
@@ -1474,7 +1504,9 @@ bot.command("buy", async (ctx) => {
   const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
   const userBalance = userRec?.balance || 0;
 
-  const keyboard = new InlineKeyboard();
+  const keyboard = new InlineKeyboard()
+    .text("⚡ Kiểm tra giao dịch", `check_order:${orderId}`)
+    .row();
   if (userBalance >= finalPrice) {
     keyboard.text(`💳 Thanh toán bằng Số Dư Ví (${userBalance.toLocaleString("vi-VN")}đ)`, `pay_balance:${orderId}`).row();
   }
@@ -2104,12 +2136,14 @@ async function handleDepositRequest(ctx: any, amount: number) {
     },
   });
 
+  const bank = await getDynamicBankInfo();
+
   const qrBuffer = await fetchQRCodeBuffer(
-    BANK_ID,
-    BANK_ACCOUNT_NO,
+    bank.bankId,
+    bank.accountNo,
     amount,
     depositId,
-    BANK_ACCOUNT_NAME
+    bank.accountName
   );
 
   const depositText =
@@ -2119,9 +2153,9 @@ async function handleDepositRequest(ctx: any, amount: number) {
     `• <b>Ưu đãi / Phí:</b> <b>Miễn phí (0đ)</b>\n` +
     `• <b>Thực nhận vào ví:</b> <b>${formatVND(amount)}</b>\n\n` +
     `🏦 <b>THÔNG TIN CHUYỂN KHOẢN TỰ ĐỘNG:</b>\n` +
-    `• Ngân hàng: <b>${BANK_ID}</b>\n` +
-    `• Số tài khoản: <code>${BANK_ACCOUNT_NO}</code>\n` +
-    `• Chủ tài khoản: <b>${BANK_ACCOUNT_NAME}</b>\n` +
+    `• Ngân hàng: <b>${bank.bankId}</b>\n` +
+    `• Số tài khoản: <code>${bank.accountNo}</code>\n` +
+    `• Chủ tài khoản: <b>${bank.accountName}</b>\n` +
     `• Số tiền: <code>${amount}</code>\n` +
     `• Nội dung chuyển khoản: <code>${depositId}</code>\n\n` +
     `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
@@ -2200,25 +2234,86 @@ bot.callbackQuery("menu_wallet", async (ctx) => {
 
 bot.callbackQuery(/^check_deposit:(.+)$/, async (ctx) => {
   const depositId = ctx.match[1];
+  await ctx.answerCallbackQuery({ text: "⏳ Đang kiểm tra giao dịch với ngân hàng ACB..." }).catch(() => {});
+  try {
+    await checkAndProcessApi5sPayments();
+  } catch {}
+
   const tx = await prisma.walletTransaction.findUnique({ where: { id: depositId } });
   if (!tx) {
-    await ctx.answerCallbackQuery({ text: "❌ Không tìm thấy giao dịch!" });
+    await ctx.reply("❌ Không tìm thấy giao dịch nạp ví!");
     return;
   }
   if (tx.status === "SUCCESS") {
-    await ctx.answerCallbackQuery({ text: "🎉 Nạp tiền ví thành công!" });
     await ctx.deleteMessage().catch(() => {});
     await renderWallet(ctx);
     return;
   }
   if (tx.status === "CANCELLED") {
-    await ctx.answerCallbackQuery({ text: "⚠️ Giao dịch này đã bị hủy." });
+    await ctx.reply("⚠️ Giao dịch nạp ví này đã bị hủy.");
     return;
   }
-  await ctx.answerCallbackQuery({
-    text: "⏳ Hệ thống đang chờ tiền vào... Vui lòng kiểm tra lại sau ít giây!",
-    show_alert: true,
+  await ctx.reply(
+    `⏳ <b>CHƯA NHẬN ĐƯỢC KHOẢN TIỀN NẠP</b>\n\n` +
+    `• Mã giao dịch: <code>${depositId}</code>\n` +
+    `• Ngân hàng: <b>${BANK_ID}</b> · STK: <code>${BANK_ACCOUNT_NO}</code>\n\n` +
+    `<i>Nếu Quý khách vừa chuyển tiền, vui lòng chờ 5 - 15 giây để ngân hàng ghi nhận rồi bấm lại nút bên dưới!</i>`,
+    {
+      parse_mode: "HTML",
+      reply_markup: new InlineKeyboard()
+        .text("⚡ Kiểm tra lại ngay", `check_deposit:${depositId}`)
+        .row()
+        .text("🔙 Quay lại ví", "menu_wallet"),
+    }
+  );
+});
+
+// Callback kiểm tra thanh toán đơn hàng (Khách bấm ⚡ Kiểm tra giao dịch)
+bot.callbackQuery(/^check_order:(.+)$/, async (ctx) => {
+  const orderId = ctx.match[1];
+  await ctx.answerCallbackQuery({ text: "⏳ Đang kiểm tra giao dịch với ngân hàng ACB..." }).catch(() => {});
+  try {
+    await checkAndProcessApi5sPayments();
+  } catch {}
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { status: true },
   });
+
+  if (!order) {
+    await ctx.reply("❌ Không tìm thấy đơn hàng trên hệ thống.");
+    return;
+  }
+
+  if (order.status === "PAID") {
+    await ctx.deleteMessage().catch(() => {});
+    return;
+  }
+
+  if (order.status === "PROCESSING" || order.status === "PAID_PENDING_FULFILLMENT") {
+    await ctx.reply(
+      `✅ <b>ĐÃ NHẬN THANH TOÁN ĐƠN HÀNG #${orderId}</b>\n\n` +
+      `Hệ thống đang chuẩn bị và bàn giao tài khoản cho Quý khách trong ít phút!`,
+      { parse_mode: "HTML" }
+    );
+    await ctx.deleteMessage().catch(() => {});
+    return;
+  }
+
+  await ctx.reply(
+    `⏳ <b>CHƯA NHẬN ĐƯỢC THANH TOÁN</b>\n\n` +
+    `• Mã đơn hàng: <code>${orderId}</code>\n` +
+    `• Ngân hàng: <b>${BANK_ID}</b> · STK: <code>${BANK_ACCOUNT_NO}</code>\n\n` +
+    `<i>Nếu Quý khách vừa chuyển khoản, hệ thống ngân hàng có thể mất 5 - 15 giây để đồng bộ. Vui lòng bấm lại nút <b>⚡ Kiểm tra giao dịch</b> sau vài giây!</i>`,
+    {
+      parse_mode: "HTML",
+      reply_markup: new InlineKeyboard()
+        .text("⚡ Kiểm tra lại ngay", `check_order:${orderId}`)
+        .row()
+        .text("🔙 Về danh mục sản phẩm", "menu_products"),
+    }
+  );
 });
 
 bot.callbackQuery(/^cancel_deposit:(.+)$/, async (ctx) => {
@@ -2476,6 +2571,7 @@ console.log("🚀 Đang khởi động Telegram Bot...");
 
 let heartbeatTimer: NodeJS.Timeout | null = null;
 let priceSyncTimer: NodeJS.Timeout | null = null;
+let api5sTimer: NodeJS.Timeout | null = null;
 let healthServer: http.Server | null = null;
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
@@ -2495,6 +2591,7 @@ async function cleanupAndExit() {
   console.log("\n🛑 Đang dừng Bot...");
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (priceSyncTimer) clearInterval(priceSyncTimer);
+  if (api5sTimer) clearInterval(api5sTimer);
   if (healthServer) healthServer.close();
   await stopBotHeartbeat().catch(() => {});
   process.exit(0);
@@ -2512,6 +2609,19 @@ bot.start({
     heartbeatTimer = setInterval(() => {
       recordBotHeartbeat().catch(() => {});
     }, 30000);
+
+    // Tự động quét và đối soát giao dịch ACB qua api5s mỗi 12 giây
+    checkAndProcessApi5sPayments().catch(() => {});
+    api5sTimer = setInterval(async () => {
+      try {
+        const res = await checkAndProcessApi5sPayments();
+        if (res.processed > 0) {
+          console.log(`[api5s] Đã xử lý tự động ${res.processed} giao dịch mới.`);
+        }
+      } catch (err) {
+        console.error("Lỗi quét api5s định kỳ:", err);
+      }
+    }, 12000);
 
     // Tự động quét và chốt giá mới từ nhà cung cấp RoboticVN mỗi 30 phút
     priceSyncTimer = setInterval(async () => {

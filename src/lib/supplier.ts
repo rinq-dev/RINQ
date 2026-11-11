@@ -112,7 +112,7 @@ export async function createSupplierOrder(
 ): Promise<{ success: boolean; orderId?: string; error?: string }> {
   try {
     const apiKey = requireSupplierApiKey();
-    const normalizedVariantId = variantId.startsWith("ROBOTIC:")
+    const normalizedVariantId = variantId.includes(":")
       ? variantId.split(":").pop() || variantId
       : variantId;
     const res = await fetch(`${SUPPLIER_BASE_URL}/orders`, {

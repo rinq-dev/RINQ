@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
       getAllCoupons().catch(() => []),
       getAllGiveaways().catch(() => []),
       isBotOnline().catch(() => false),
-      getPaymentSettings().catch(() => ({ bankId: "MB", accountNo: "", accountName: "" })),
+      getPaymentSettings().catch(() => ({ bankId: "ACB", accountNo: "", accountName: "", api5sToken: "" })),
     ]);
 
     // Nhóm 2: Đơn hàng, khách hàng và nhà cung cấp
@@ -265,6 +265,7 @@ export async function GET(req: NextRequest) {
       systemStatus: {
         botOnline,
         sepayConfigured: Boolean(process.env.SEPAY_API_KEY?.trim()),
+        api5sConfigured: Boolean(paymentSettings.api5sToken),
         allowPaymentSimulation: process.env.NODE_ENV !== "production",
         bankId: paymentSettings.bankId,
         bankAccountNo: paymentSettings.accountNo,
