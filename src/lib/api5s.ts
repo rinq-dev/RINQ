@@ -3,6 +3,7 @@ import { fulfillFromSupplier } from "./supplier-fulfillment";
 import { encryptStock, decryptStock } from "./crypto";
 import { isSupportedOrderId } from "./order-policy";
 import { getPaymentSettings } from "./app-settings";
+import { rewardAffiliateCommission } from "./affiliate";
 
 export interface Api5sTransaction {
   transactionID: string;
@@ -462,6 +463,14 @@ export async function processApi5sTransaction(tx: Api5sTransaction): Promise<{
     where: { key: txKey },
     update: { value: JSON.stringify(tx) },
     create: { key: txKey, value: JSON.stringify(tx) },
+  }).catch(() => {});
+
+  // Trả hoa hồng giới thiệu (Affiliate) nếu có
+  rewardAffiliateCommission({
+    id: result.order.id,
+    telegramId: String(result.order.telegramId),
+    totalAmount: result.order.totalAmount,
+    product: order.product,
   }).catch(() => {});
 
   // Gửi hàng về Telegram khách hàng

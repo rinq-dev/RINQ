@@ -5,6 +5,7 @@ import { encryptStock, decryptStock } from "@/lib/crypto";
 import { timingSafeEqual } from "crypto";
 import { COOKIE_NAME, isValidAdminSession } from "@/lib/admin-session";
 import { isSupportedOrderId } from "@/lib/order-policy";
+import { rewardAffiliateCommission } from "@/lib/affiliate";
 
 export async function GET() {
   return NextResponse.json({
@@ -445,6 +446,14 @@ export async function POST(req: NextRequest) {
 
     // Gửi thông báo và hàng về Telegram khách hàng qua Bot API
     const botToken = process.env.BOT_TOKEN;
+
+    // Trả hoa hồng giới thiệu (Affiliate) nếu có
+    rewardAffiliateCommission({
+      id: result.order.id,
+      telegramId: String(result.order.telegramId),
+      totalAmount: result.order.totalAmount,
+      product: order.product,
+    }).catch(() => {});
     if (botToken && result.order.telegramId) {
       // 1. Tự động xóa tin nhắn mã QR thanh toán trên Telegram để khung chat sạch đẹp
       if (qrMessageId) {

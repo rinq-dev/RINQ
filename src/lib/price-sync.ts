@@ -5,6 +5,7 @@
 import { prisma } from "./prisma";
 import { getRoboticCatalog, roboticRetailPrice } from "./robotic";
 import { broadcastPriceUpdate } from "./notifier";
+import { notifyRestockSubscribers } from "./restock";
 
 export interface PriceChangeItem {
   productId: number;
@@ -222,6 +223,7 @@ export async function syncRoboticPrices(options: {
         if (oldStock !== undefined && newStock !== undefined) {
           if (oldStock === 0 && newStock > 0) {
             restockedList.push(`• <b>${prod.name}</b>: kho vừa có lại <b>${newStock}</b> sản phẩm`);
+            notifyRestockSubscribers(prod.id, newStock).catch(() => {});
           } else if (oldStock > 0 && newStock === 0) {
             outOfStockList.push(`• <b>${prod.name}</b>: nhà cung cấp vừa hết hàng`);
           }

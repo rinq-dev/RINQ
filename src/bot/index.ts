@@ -26,6 +26,8 @@ import {
 } from "../lib/flash-sale";
 import { checkAndProcessApi5sPayments } from "../lib/api5s";
 import { getPaymentSettings } from "../lib/app-settings";
+import { subscribeRestock, unsubscribeRestock } from "../lib/restock";
+import { recordReferral, rewardAffiliateCommission, getAffiliateStats } from "../lib/affiliate";
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 if (!BOT_TOKEN) {
@@ -77,8 +79,8 @@ async function getDynamicBankInfo() {
 // 1. Menu ReplyKeyboard cố định dưới đáy
 const mainMenuKeyboard = new Keyboard()
   .text("🗂 Xem sản phẩm").text("📦 Đơn hàng của tôi").row()
-  .text("💳 Ví & Số dư").text("🎁 Giveaway").row()
-  .text("💬 Liên hệ hỗ trợ")
+  .text("💳 Ví & Số dư").text("🤝 Giới thiệu").row()
+  .text("🎁 Giveaway").text("💬 Liên hệ hỗ trợ")
   .resized();
 
 // Helper: Format tiền tệ VNĐ
@@ -142,6 +144,50 @@ async function generateOrderId(): Promise<string> {
     if (!found) return orderId;
   }
   throw new Error("Không thể tạo mã đơn hàng duy nhất");
+}
+
+// Helper tạo bàn phím thanh toán gồm nút Copy 1 chạm và kiểm tra giao dịch
+function buildPaymentKeyboard(options: {
+  orderId?: string;
+  depositId?: string;
+  accountNo: string;
+  amount: number;
+  userBalance?: number;
+  finalPrice?: number;
+}): InlineKeyboard {
+  const keyboard = new InlineKeyboard();
+
+  // Nút sao chép 1 chạm trực tiếp vào clipboard (Telegram copy_text)
+  keyboard.add(
+    { text: "📋 Copy STK", copy_text: { text: options.accountNo } } as any,
+    { text: "📋 Copy Tiền", copy_text: { text: String(options.amount) } } as any
+  ).row();
+
+  const memo = options.orderId || options.depositId || "";
+  if (memo) {
+    keyboard.add({ text: `📋 Copy Nội dung (${memo})`, copy_text: { text: memo } } as any).row();
+  }
+
+  if (options.orderId) {
+    keyboard.text("⚡ Kiểm tra giao dịch", `check_order:${options.orderId}`).row();
+    if (
+      options.userBalance !== undefined &&
+      options.finalPrice !== undefined &&
+      options.userBalance >= options.finalPrice
+    ) {
+      keyboard.text(
+        `💳 Thanh toán bằng Số Dư Ví (${options.userBalance.toLocaleString("vi-VN")}đ)`,
+        `pay_balance:${options.orderId}`
+      ).row();
+    }
+    keyboard.text("🔙 Hủy / Về danh mục", "menu_products");
+  } else if (options.depositId) {
+    keyboard.text("⚡ Kiểm tra giao dịch", `check_deposit:${options.depositId}`).row();
+    keyboard.text("❌ Hủy giao dịch này", `cancel_deposit:${options.depositId}`).row();
+    keyboard.text("🔙 Quay lại ví", "menu_wallet");
+  }
+
+  return keyboard;
 }
 
 // Helper: Tính số lượng tồn kho khả dụng (bao gồm kết nối NCC API ẩn với khách & kiểm tra tồn kho NCC)
@@ -532,6 +578,9 @@ bot.command("start", async (ctx) => {
 
   if (ctx.from?.id) {
     addSubscriber(String(ctx.from.id), ctx.from.username, ctx.from.first_name).catch(() => {});
+    if (match.startsWith("ref_")) {
+      recordReferral(match, String(ctx.from.id)).catch(() => {});
+    }
   }
 
   const rawName = ctx.from?.first_name || "";
@@ -832,6 +881,22 @@ bot.callbackQuery(/^prod:(\d+)$/, async (ctx) => {
   if (stockCount > 0) {
     keyboard.text("💳 Mua ngay", `buy:${product.id}`).row();
     keyboard.text("🏷 Dùng mã giảm giá", `coupon_info:${product.id}`).row();
+  } else {
+    const telegramId = String(ctx.from?.id);
+    const isSubbed = await prisma.restockSubscription.findUnique({
+      where: {
+        productId_telegramId: {
+          productId: product.id,
+          telegramId,
+        },
+      },
+    }).catch(() => null);
+
+    if (isSubbed) {
+      keyboard.text("🔕 Hủy nhận báo hàng", `restock_unsub:${product.id}`).row();
+    } else {
+      keyboard.text("🔔 Báo cho tôi khi có hàng", `restock_sub:${product.id}`).row();
+    }
   }
   if (product.category && product.category.trim()) {
     keyboard.text(`🔙 Quay lại danh mục ${product.category}`, `cat:${product.category}`).row();
@@ -945,13 +1010,13 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
   const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
   const userBalance = userRec?.balance || 0;
 
-  const keyboard = new InlineKeyboard()
-    .text("⚡ Kiểm tra giao dịch", `check_order:${orderId}`)
-    .row();
-  if (userBalance >= finalPrice) {
-    keyboard.text(`💳 Thanh toán bằng Số Dư Ví (${userBalance.toLocaleString("vi-VN")}đ)`, `pay_balance:${orderId}`).row();
-  }
-  keyboard.text("🔙 Hủy / Về danh mục", "menu_products");
+  const keyboard = buildPaymentKeyboard({
+    orderId,
+    accountNo: bank.accountNo,
+    amount: finalPrice,
+    userBalance,
+    finalPrice,
+  });
 
   // Xóa tin nhắn chi tiết trước đó để thay thế bằng giao diện thanh toán
   await ctx.deleteMessage().catch(() => {});
@@ -1289,13 +1354,13 @@ bot.callbackQuery(/^skip_coupon:(\d+):(\d+)$/, async (ctx) => {
   const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
   const userBalance = userRec?.balance || 0;
 
-  const keyboard = new InlineKeyboard()
-    .text("⚡ Kiểm tra giao dịch", `check_order:${orderId}`)
-    .row();
-  if (userBalance >= totalAmount) {
-    keyboard.text(`💳 Thanh toán bằng Số Dư Ví (${userBalance.toLocaleString("vi-VN")}đ)`, `pay_balance:${orderId}`).row();
-  }
-  keyboard.text("🔙 Hủy / Về danh mục", "menu_products");
+  const keyboard = buildPaymentKeyboard({
+    orderId,
+    accountNo: bank.accountNo,
+    amount: totalAmount,
+    userBalance,
+    finalPrice: totalAmount,
+  });
 
   await ctx.deleteMessage().catch(() => {});
 
@@ -1492,13 +1557,13 @@ bot.on("message:text", async (ctx, next) => {
     const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
     const userBalance = userRec?.balance || 0;
 
-    const keyboard = new InlineKeyboard()
-      .text("⚡ Kiểm tra giao dịch", `check_order:${orderId}`)
-      .row();
-    if (userBalance >= finalPrice) {
-      keyboard.text(`💳 Thanh toán bằng Số Dư Ví (${userBalance.toLocaleString("vi-VN")}đ)`, `pay_balance:${orderId}`).row();
-    }
-    keyboard.text("🔙 Hủy / Về danh mục", "menu_products");
+    const keyboard = buildPaymentKeyboard({
+      orderId,
+      accountNo: bank.accountNo,
+      amount: finalPrice,
+      userBalance,
+      finalPrice,
+    });
 
     let sentQrMsg: any = null;
     if (qrBuffer) {
@@ -1635,13 +1700,13 @@ bot.command("buy", async (ctx) => {
   const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
   const userBalance = userRec?.balance || 0;
 
-  const keyboard = new InlineKeyboard()
-    .text("⚡ Kiểm tra giao dịch", `check_order:${orderId}`)
-    .row();
-  if (userBalance >= finalPrice) {
-    keyboard.text(`💳 Thanh toán bằng Số Dư Ví (${userBalance.toLocaleString("vi-VN")}đ)`, `pay_balance:${orderId}`).row();
-  }
-  keyboard.text("🔙 Hủy / Về danh mục", "menu_products");
+  const keyboard = buildPaymentKeyboard({
+    orderId,
+    accountNo: bank.accountNo,
+    amount: finalPrice,
+    userBalance,
+    finalPrice,
+  });
 
   let sentQrMsg: any = null;
   if (qrBuffer) {
@@ -1770,6 +1835,14 @@ bot.callbackQuery(/^pay_balance:(DH[A-F0-9]+)$/, async (ctx) => {
   await ctx.deleteMessage().catch(() => {});
 
   if (finalStatus === "PAID" && keysToDeliver.length > 0) {
+    // Trả hoa hồng giới thiệu (Affiliate) nếu có
+    rewardAffiliateCommission({
+      id: order.id,
+      telegramId,
+      totalAmount: order.totalAmount,
+      product: order.product,
+    }).catch(() => {});
+
     const warrantyNotice = order.product?.warranty?.trim()
       ? `<blockquote>🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
       : "";
@@ -2212,6 +2285,8 @@ async function renderWallet(ctx: any, deletePrevious = false, editInPlace = fals
     .text("✏️ Nhập số tiền khác", "nap_custom")
     .text("⚡ Làm mới số dư", "refresh_wallet")
     .row()
+    .text("🤝 Giới thiệu nhận 5% hoa hồng", "menu_affiliate")
+    .row()
     .text("🛒 Xem sản phẩm", "menu_products");
 
   if (editInPlace && ctx.callbackQuery?.message) {
@@ -2296,12 +2371,11 @@ async function handleDepositRequest(ctx: any, amount: number) {
     `3. <i>Nạp ví không tự thanh toán đơn đang chờ.</i>\n\n` +
     `<i>Sau khi nhận thanh toán, hệ thống sẽ tự động cộng số dư vào ví trong 3 - 5 giây!</i>`;
 
-  const depositKeyboard = new InlineKeyboard()
-    .text("⚡ Kiểm tra giao dịch", `check_deposit:${depositId}`)
-    .row()
-    .text("❌ Hủy giao dịch này", `cancel_deposit:${depositId}`)
-    .row()
-    .text("🔙 Quay lại ví", "menu_wallet");
+  const depositKeyboard = buildPaymentKeyboard({
+    depositId,
+    accountNo: bank.accountNo,
+    amount,
+  });
 
   if (ctx.callbackQuery?.message) {
     await ctx.deleteMessage().catch(() => {});
@@ -2362,6 +2436,86 @@ bot.callbackQuery("refresh_wallet", async (ctx) => {
 bot.callbackQuery("menu_wallet", async (ctx) => {
   await ctx.answerCallbackQuery().catch(() => {});
   await renderWallet(ctx, true);
+});
+
+// 19. Giao diện chương trình Affiliate / Giới thiệu nhận hoa hồng
+async function handleShowAffiliate(ctx: any) {
+  const telegramId = String(ctx.from?.id);
+  const botInfo = await bot.api.getMe().catch(() => ({ username: "RINQ_bot" }));
+  const botUsername = botInfo.username || "RINQ_bot";
+  const refLink = `https://t.me/${botUsername}?start=ref_${telegramId}`;
+
+  const stats = await getAffiliateStats(telegramId);
+
+  const text =
+    `🤝 <b>CHƯƠNG TRÌNH ĐỐI TÁC & HOA HỒNG GIỚI THIỆU</b>\n\n` +
+    `Kính gửi Quý khách, chia sẻ link giới thiệu bên dưới tới bạn bè để cùng nhận ưu đãi:\n\n` +
+    `🎁 <b>Đặc quyền hoa hồng:</b> Nhận ngay <b>5%</b> giá trị cho mỗi đơn hàng bạn bè hoàn tất!\n` +
+    `💳 <b>Thanh toán:</b> Tiền hoa hồng cộng thẳng vào <b>Ví Bot</b> tức thì, dùng để mua mọi tài nguyên hoặc tích lũy.\n\n` +
+    `🔗 <b>Link giới thiệu của Quý khách:</b>\n` +
+    `<code>${refLink}</code>\n\n` +
+    `📊 <b>Thống kê cá nhân của Quý khách:</b>\n` +
+    `• Đã giới thiệu: <b>${stats.referralCount}</b> người\n` +
+    `• Tổng hoa hồng tích lũy: <b>${stats.totalCommission.toLocaleString("vi-VN")} đ</b>\n\n` +
+    `<i>Quý khách chạm vào link trên để sao chép hoặc bấm nút bên dưới để chia sẻ ngay:</i>`;
+
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent("Shop tài khoản & key bản quyền tự động 24/7 uy tín, giá siêu rẻ!")}`;
+
+  const keyboard = new InlineKeyboard()
+    .url("📤 Chia sẻ link ngay", shareUrl)
+    .row()
+    .text("💳 Xem số dư ví", "menu_wallet")
+    .text("🔙 Về danh mục", "menu_products");
+
+  if (ctx.callbackQuery?.message) {
+    try {
+      await ctx.editMessageText(text, {
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+      });
+      return;
+    } catch {}
+  }
+
+  await ctx.reply(text, {
+    parse_mode: "HTML",
+    reply_markup: keyboard,
+  });
+}
+
+bot.hears(["🤝 Giới thiệu", "🤝 Kiếm tiền"], handleShowAffiliate);
+bot.command(["affiliate", "gioithieu", "ref"], handleShowAffiliate);
+bot.callbackQuery("menu_affiliate", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  await handleShowAffiliate(ctx);
+});
+
+// Callbacks đăng ký/hủy nhận thông báo có hàng (Restock Alert)
+bot.callbackQuery(/^restock_sub:(\d+)$/, async (ctx) => {
+  const productId = parseInt(ctx.match[1], 10);
+  const telegramId = String(ctx.from?.id);
+  const username = ctx.from?.username;
+
+  const res = await subscribeRestock(productId, telegramId, username);
+  if (res.success) {
+    await ctx.answerCallbackQuery({
+      text: "🔔 Đã đăng ký! Bot sẽ tự động gửi tin nhắn báo cho bạn ngay khi có hàng về.",
+      show_alert: true,
+    }).catch(() => {});
+  } else {
+    await ctx.answerCallbackQuery({ text: "❌ Có lỗi khi đăng ký, vui lòng thử lại sau!" }).catch(() => {});
+  }
+});
+
+bot.callbackQuery(/^restock_unsub:(\d+)$/, async (ctx) => {
+  const productId = parseInt(ctx.match[1], 10);
+  const telegramId = String(ctx.from?.id);
+
+  await unsubscribeRestock(productId, telegramId);
+  await ctx.answerCallbackQuery({
+    text: "🔕 Đã hủy nhận thông báo cho sản phẩm này.",
+    show_alert: true,
+  }).catch(() => {});
 });
 
 bot.callbackQuery(/^check_deposit:(.+)$/, async (ctx) => {
@@ -2688,6 +2842,7 @@ async function registerBotCommands() {
       { command: "orders", description: "📦 Lịch sử đơn hàng của tôi" },
       { command: "vi", description: "💳 Xem ví & số dư" },
       { command: "nap", description: "💰 Nạp tiền vào ví" },
+      { command: "affiliate", description: "🤝 Link giới thiệu nhận 5% hoa hồng" },
       { command: "giveaway", description: "🎁 Sự kiện Giveaway tri ân" },
       { command: "help", description: "❓ Quy trình hướng dẫn mua hàng" },
       { command: "support", description: "💬 Hỗ trợ trực tuyến (@rinq_hotro)" },
