@@ -889,6 +889,8 @@ async function showUserOrders(ctx: any, deletePrevious = false) {
 // 4. Callback Query: Xem chi tiết sản phẩm `prod:<id>` (XÓA TIN NHẮN CŨ ĐỂ THAY THẾ)
 bot.callbackQuery(/^prod:(\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery().catch(() => {});
+  const telegramId = String(ctx.from?.id);
+  checkoutStates.delete(telegramId);
   const productId = parseInt(ctx.match[1], 10);
 
   const product = await fetchSingleProductWithSupplierMeta(productId);
@@ -1003,27 +1005,47 @@ bot.callbackQuery("noop", async (ctx) => {
   await ctx.answerCallbackQuery().catch(() => {});
 });
 
-// 5. Callback Query: Mua ngay `buy:<id>` (XÓA CHI TIẾT ĐỂ THAY THẾ BẰNG MÃ QR)
-bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
-  await ctx.answerCallbackQuery().catch(() => {});
-  const productId = parseInt(ctx.match[1], 10);
+// Interface theo dõi trạng thái mua hàng của user
+type UserCheckoutState =
+  | {
+      action: "WAIT_COUPON";
+      productId: number;
+      quantity: number;
+      timestamp: number;
+    }
+  | {
+      action: "WAIT_BUY_QTY";
+      productId: number;
+      timestamp: number;
+    };
+const checkoutStates = new Map<string, UserCheckoutState>();
+
+// Helper thực hiện tạo đơn hàng trực tiếp theo số lượng
+async function processDirectOrder(
+  ctx: any,
+  productId: number,
+  quantity: number
+) {
+  const telegramId = String(ctx.from?.id);
+  const username = ctx.from?.username || null;
 
   const product = await fetchSingleProductWithSupplierMeta(productId);
   const stockCount = getProductStockCount(product);
 
-  if (!product || stockCount === 0) {
-    await ctx.reply("❌ Rất tiếc, sản phẩm này vừa hết hàng! Vui lòng chọn sản phẩm khác.");
+  if (!product || stockCount < quantity) {
+    await ctx.reply(
+      `❌ Rất tiếc, sản phẩm này hiện chỉ còn ${stockCount} sản phẩm trong kho! Kính mời Quý khách chọn lại số lượng.`,
+      { reply_markup: new InlineKeyboard().text("🔙 Xem sản phẩm", `prod:${productId}`) }
+    );
     return;
   }
 
   const orderId = await generateOrderId();
-  const telegramId = String(ctx.from?.id);
-  const username = ctx.from?.username || null;
-
   const flashSale = await getActiveFlashSale();
-  const finalPrice = flashSale
+  const unitPrice = flashSale
     ? calculateFlashSalePrice(product.price, flashSale.discountPercent)
     : product.price;
+  const totalAmount = unitPrice * quantity;
 
   // Tạo đơn hàng ở trạng thái PENDING
   await prisma.order.create({
@@ -1032,43 +1054,43 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
       telegramId,
       username,
       productId: product.id,
-      quantity: 1,
-      totalAmount: finalPrice,
+      quantity,
+      totalAmount,
       status: "PENDING",
     },
   });
 
   const bank = await getDynamicBankInfo();
 
-  // Tải ảnh mã QR qua buffer
+  // Tải ảnh mã QR qua buffer (ưu tiên khung thương hiệu ACB)
   const qrBuffer = await fetchQRCodeBuffer(
     bank.bankId,
     bank.accountNo,
-    finalPrice,
+    totalAmount,
     orderId,
     bank.accountName
   );
 
   const discountNote = flashSale
-    ? `• <b>Ưu đãi Flash Sale:</b> Giảm -${flashSale.discountPercent}%\n`
+    ? `• <b>Ưu đãi Flash Sale:</b> Giảm -${flashSale.discountPercent}% (<s>${formatVND(product.price)}</s> → <b>${formatVND(unitPrice)}</b>)\n`
     : "";
 
   const paymentText =
     `🧾 <b>HÓA ĐƠN ĐẶT HÀNG:</b> <code>${orderId}</code>\n` +
     `• <b>Sản phẩm:</b> <b>${product.name}</b>\n` +
-    `• <b>Số lượng:</b> <b>1 sản phẩm</b>\n` +
+    `• <b>Số lượng:</b> <b>${quantity} sản phẩm</b>\n` +
     discountNote +
-    `• <b>Tổng thanh toán:</b> <b>${formatVND(finalPrice)}</b>\n\n` +
+    `• <b>Tổng thanh toán:</b> <b>${formatVND(totalAmount)}</b>\n\n` +
     `🏦 <b>THÔNG TIN CHUYỂN KHOẢN TỰ ĐỘNG:</b>\n` +
     `• Ngân hàng: <b>${bank.bankId}</b>\n` +
     `• Số tài khoản: <code>${bank.accountNo}</code>\n` +
     `• Chủ tài khoản: <b>${bank.accountName}</b>\n` +
-    `• Số tiền: <code>${finalPrice}</code>\n` +
+    `• Số tiền: <code>${totalAmount}</code>\n` +
     `• Nội dung chuyển khoản: <code>${orderId}</code>\n\n` +
     `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
-    `1. Quý khách quét mã <b>VietQR</b> phía trên hoặc chuyển khoản theo thông tin trên (chạm vào dòng STK hoặc Nội dung để tự động sao chép).\n` +
-    `2. Xin vui lòng giữ <b>NGUYÊN</b> nội dung chuyển khoản là <code>${orderId}</code> để hệ thống tự động nhận diện.\n` +
-    `3. Bot sẽ tự động gửi tài khoản/key ngay tại đây sau 3 - 5 giây xác nhận!\n\n` +
+    `1. Quý khách quét mã <b>VietQR</b> phía trên hoặc chuyển khoản theo thông tin trên (chạm vào dòng STK hoặc Số tiền để tự động sao chép).\n` +
+    `2. Xin vui lòng giữ <b>NGUYÊN</b> nội dung chuyển khoản là <code>${orderId}</code> để hệ thống tự động đối soát.\n` +
+    `3. Bot sẽ tự động trả đủ <b>${quantity} tài khoản/key</b> ngay sau 3 - 5 giây!\n\n` +
     `<i>Xin trân trọng cảm ơn Quý khách đã lựa chọn RINQ SHOP!</i>`;
 
   const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
@@ -1077,12 +1099,11 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
   const keyboard = buildPaymentKeyboard({
     orderId,
     accountNo: bank.accountNo,
-    amount: finalPrice,
+    amount: totalAmount,
     userBalance,
-    finalPrice,
+    finalPrice: totalAmount,
   });
 
-  // Xóa tin nhắn chi tiết trước đó để thay thế bằng giao diện thanh toán
   await ctx.deleteMessage().catch(() => {});
 
   let sentQrMsg: any = null;
@@ -1113,6 +1134,79 @@ bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
       })
       .catch(() => {});
   }
+}
+
+// 5. Callback Query: Mua ngay `buy:<id>` -> Mở màn hình chọn/nhập số lượng
+bot.callbackQuery(/^buy:(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  const productId = parseInt(ctx.match[1], 10);
+
+  const product = await fetchSingleProductWithSupplierMeta(productId);
+  const stockCount = getProductStockCount(product);
+
+  if (!product || stockCount === 0) {
+    await ctx.reply("❌ Rất tiếc, sản phẩm này vừa hết hàng! Vui lòng chọn sản phẩm khác.");
+    return;
+  }
+
+  const telegramId = String(ctx.from?.id);
+  checkoutStates.set(telegramId, {
+    action: "WAIT_BUY_QTY",
+    productId: product.id,
+    timestamp: Date.now(),
+  });
+
+  await ctx.deleteMessage().catch(() => {});
+
+  const flashSale = await getActiveFlashSale();
+  const unitPrice = flashSale
+    ? calculateFlashSalePrice(product.price, flashSale.discountPercent)
+    : product.price;
+
+  const priceLine = flashSale
+    ? `• <b>Đơn giá ưu đãi:</b> <s>${formatVND(product.price)}</s> ➔ <b>${formatVND(unitPrice)}</b> 🔥 <i>(-${flashSale.discountPercent}% Flash Sale)</i>\n`
+    : `• <b>Đơn giá:</b> <b>${formatVND(product.price)}</b> / sản phẩm\n`;
+
+  const text =
+    `🛒 <b>MUA SẢN PHẨM: ${escapeHtml(product.name)}</b>\n` +
+    priceLine +
+    `• <b>Tồn kho sẵn có:</b> <b>${stockCount} sản phẩm</b>\n\n` +
+    `🔢 <b>Kính mời Quý khách chọn nhanh số lượng hoặc gõ trực tiếp số lượng muốn mua:</b>\n` +
+    `<i>(Ví dụ: Bấm nút bên dưới hoặc gõ <code>1</code>, <code>2</code>, <code>5</code> vào khung chat...)</i>`;
+
+  const keyboard = new InlineKeyboard();
+  const quantities: number[] = [];
+
+  if (stockCount <= 6) {
+    for (let i = 1; i <= stockCount; i++) quantities.push(i);
+  } else {
+    quantities.push(1, 2, 3, 5);
+    if (stockCount >= 10) quantities.push(10);
+    if (!quantities.includes(stockCount)) quantities.push(stockCount);
+  }
+
+  for (let i = 0; i < quantities.length; i += 3) {
+    const chunk = quantities.slice(i, i + 3);
+    for (const q of chunk) {
+      const label = q === stockCount && q > 5 ? `Tất cả (${q})` : `${q} sản phẩm`;
+      keyboard.text(label, `buy_qty:${product.id}:${q}`);
+    }
+    keyboard.row();
+  }
+
+  keyboard.text("🔙 Quay lại sản phẩm", `prod:${product.id}`);
+
+  await ctx.reply(text, { parse_mode: "HTML", reply_markup: keyboard });
+});
+
+// 5b. Callback Query: Chọn số lượng mua ngay `buy_qty:<id>:<qty>`
+bot.callbackQuery(/^buy_qty:(\d+):(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  const productId = parseInt(ctx.match[1], 10);
+  const quantity = parseInt(ctx.match[2], 10);
+  const telegramId = String(ctx.from?.id);
+  checkoutStates.delete(telegramId);
+  await processDirectOrder(ctx, productId, quantity);
 });
 
 // 6. Callback Query: Trở về danh mục (XÓA TIN HIỆN TẠI VÀ MỞ LẠI DANH MỤC)
@@ -1244,15 +1338,6 @@ bot.callbackQuery(/^join_ga:(\d+)$/, async (ctx) => {
   }
 });
 
-// Interface theo dõi trạng thái mua hàng của user (chờ nhập mã coupon)
-interface UserCheckoutState {
-  action: "WAIT_COUPON";
-  productId: number;
-  quantity: number;
-  timestamp: number;
-}
-const checkoutStates = new Map<string, UserCheckoutState>();
-
 // 11. Callback Query: Chọn số lượng trước khi nhập mã giảm giá
 bot.callbackQuery(/^coupon_info:(\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery().catch(() => {});
@@ -1363,96 +1448,7 @@ bot.callbackQuery(/^skip_coupon:(\d+):(\d+)$/, async (ctx) => {
   const quantity = parseInt(ctx.match[2], 10);
   const telegramId = String(ctx.from?.id);
   checkoutStates.delete(telegramId);
-
-  const product = await fetchSingleProductWithSupplierMeta(productId);
-  const stockCount = getProductStockCount(product);
-
-  if (!product || stockCount < quantity) {
-    await ctx.reply("❌ Rất tiếc, sản phẩm này hiện không còn đủ số lượng trong kho!");
-    return;
-  }
-
-  const orderId = await generateOrderId();
-  const username = ctx.from?.username || null;
-  const totalAmount = product.price * quantity;
-
-  await prisma.order.create({
-    data: {
-      id: orderId,
-      telegramId,
-      username,
-      productId: product.id,
-      quantity,
-      totalAmount,
-      status: "PENDING",
-    },
-  });
-
-  const bank = await getDynamicBankInfo();
-
-  const qrBuffer = await fetchQRCodeBuffer(
-    bank.bankId,
-    bank.accountNo,
-    totalAmount,
-    orderId,
-    bank.accountName
-  );
-
-  const paymentText =
-    `🧾 <b>HÓA ĐƠN ĐẶT HÀNG:</b> <code>${orderId}</code>\n` +
-    `• <b>Sản phẩm:</b> <b>${product.name}</b>\n` +
-    `• <b>Số lượng:</b> <b>${quantity} sản phẩm</b>\n` +
-    `• <b>Tổng thanh toán:</b> <b>${formatVND(totalAmount)}</b>\n\n` +
-    `🏦 <b>THÔNG TIN CHUYỂN KHOẢN TỰ ĐỘNG:</b>\n` +
-    `• Ngân hàng: <b>${bank.bankId}</b>\n` +
-    `• Số tài khoản: <code>${bank.accountNo}</code>\n` +
-    `• Chủ tài khoản: <b>${bank.accountName}</b>\n` +
-    `• Số tiền: <code>${totalAmount}</code>\n` +
-    `• Nội dung chuyển khoản: <code>${orderId}</code>\n\n` +
-    `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
-    `1. Quý khách quét mã <b>VietQR</b> phía trên hoặc chuyển khoản theo thông tin trên (chạm vào dòng STK hoặc Nội dung để tự động sao chép).\n` +
-    `2. Xin vui lòng giữ <b>NGUYÊN</b> nội dung chuyển khoản là <code>${orderId}</code> để hệ thống tự động đối soát.\n` +
-    `3. Bot sẽ tự động trả đủ <b>${quantity} tài khoản/key</b> ngay sau 3 - 5 giây!\n\n` +
-    `<i>Xin trân trọng cảm ơn Quý khách!</i>`;
-
-  const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
-  const userBalance = userRec?.balance || 0;
-
-  const keyboard = buildPaymentKeyboard({
-    orderId,
-    accountNo: bank.accountNo,
-    amount: totalAmount,
-    userBalance,
-    finalPrice: totalAmount,
-  });
-
-  await ctx.deleteMessage().catch(() => {});
-
-  let sentQrMsg: any = null;
-  if (qrBuffer) {
-    try {
-      sentQrMsg = await ctx.replyWithPhoto(new InputFile(qrBuffer, `vietqr_${orderId}.png`), {
-        caption: paymentText,
-        parse_mode: "HTML",
-        reply_markup: keyboard,
-      });
-    } catch (photoErr) {
-      console.error("Lỗi replyWithPhoto:", photoErr);
-    }
-  }
-
-  if (!sentQrMsg) {
-    sentQrMsg = await ctx.reply(paymentText, { parse_mode: "HTML", reply_markup: keyboard });
-  }
-
-  if (sentQrMsg?.message_id) {
-    await prisma.order
-      .update({
-        where: { id: orderId },
-        data: { qrMessageId: sentQrMsg.message_id },
-      })
-      .catch(() => {});
-  }
+  await processDirectOrder(ctx, productId, quantity);
 });
 
 const pendingDepositUsers = new Set<string>();
@@ -1533,6 +1529,45 @@ bot.on("message:text", async (ctx, next) => {
     }
     pendingDepositUsers.delete(telegramId);
     await handleDepositRequest(ctx, amount);
+    return;
+  }
+
+  // Nếu người dùng đang trong phiên chờ nhập số lượng mua ngay
+  if (state && state.action === "WAIT_BUY_QTY") {
+    if (text.toLowerCase() === "huy" || text.toLowerCase() === "hủy") {
+      checkoutStates.delete(telegramId);
+      await ctx.reply("Đã hủy chọn số lượng mua hàng.");
+      return;
+    }
+
+    const qty = parseInt(text, 10);
+    if (isNaN(qty) || !/^\d+$/.test(text) || qty <= 0) {
+      await ctx.reply(
+        "⚠️ Vui lòng nhập số lượng hợp lệ là số nguyên dương (Ví dụ: <code>1</code>, <code>2</code>, <code>5</code>...). Gửi <code>huy</code> để hủy.",
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+
+    const product = await fetchSingleProductWithSupplierMeta(state.productId);
+    const stockCount = getProductStockCount(product);
+
+    if (!product || stockCount === 0) {
+      checkoutStates.delete(telegramId);
+      await ctx.reply("❌ Rất tiếc, sản phẩm này hiện đã hết hàng trong kho!");
+      return;
+    }
+
+    if (qty > stockCount) {
+      await ctx.reply(
+        `⚠️ Số lượng Quý khách yêu cầu (<b>${qty}</b>) vượt quá số lượng trong kho (chỉ còn <b>${stockCount} sản phẩm</b>). Vui lòng nhập lại số lượng phù hợp!`,
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+
+    checkoutStates.delete(telegramId);
+    await processDirectOrder(ctx, state.productId, qty);
     return;
   }
 
