@@ -6,6 +6,8 @@ const path = require("path");
 const androidRoot = path.resolve("rinq-bot-android");
 const botRuntimeLibraries = [
   "admin-session.ts",
+  "affiliate.ts",
+  "api5s.ts",
   "app-settings.ts",
   "bot-status.ts",
   "categories.ts",
@@ -29,6 +31,10 @@ for (const name of botRuntimeLibraries) {
   fs.copyFileSync(path.resolve("src/lib", name), path.join(androidRoot, "src/lib", name));
 }
 fs.copyFileSync(path.resolve("src/bot/index.ts"), path.join(androidRoot, "src/bot/index.ts"));
+if (fs.existsSync(path.resolve("public/qr-frame.jpg"))) {
+  fs.mkdirSync(path.join(androidRoot, "public"), { recursive: true });
+  fs.copyFileSync(path.resolve("public/qr-frame.jpg"), path.join(androidRoot, "public/qr-frame.jpg"));
+}
 const canonicalSchema = fs.readFileSync(path.resolve("prisma/schema.prisma"), "utf8");
 const androidGenerator = 'generator client {\n  provider      = "prisma-client-js"\n  engineType    = "client"\n}';
 const androidSchema = canonicalSchema.replace(
@@ -64,6 +70,12 @@ function getFiles(dir) {
 getFiles("rinq-bot-android/src").forEach((f) => {
   filesToZip.push(f.replace("rinq-bot-android/", ""));
 });
+
+if (fs.existsSync(path.join(androidRoot, "public"))) {
+  getFiles("rinq-bot-android/public").forEach((f) => {
+    filesToZip.push(f.replace("rinq-bot-android/", ""));
+  });
+}
 
 console.log("Total files to zip:", filesToZip.length);
 

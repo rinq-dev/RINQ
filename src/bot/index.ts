@@ -99,7 +99,19 @@ function escapeHtml(str: string): string {
   }[c] || c));
 }
 
-// Helper: Tải ảnh mã QR (Ưu tiên SePay QR phản hồi tức thì, fallback VietQR)
+let cachedSharp: any | undefined;
+async function getSharp(): Promise<any | null> {
+  if (cachedSharp !== undefined) return cachedSharp;
+  try {
+    const mod = await import("sharp");
+    cachedSharp = mod?.default || mod || null;
+  } catch {
+    cachedSharp = null;
+  }
+  return cachedSharp;
+}
+
+// Helper: Tải ảnh mã QR (Ưu tiên ghép khung thương hiệu ACB, fallback SePay / VietQR chuẩn)
 async function fetchQRCodeBuffer(
   bankId: string,
   accNo: string,
@@ -108,6 +120,80 @@ async function fetchQRCodeBuffer(
   accName: string
 ): Promise<Buffer | null> {
   const normBank = normalizeBankId(bankId);
+  const framePath = path.resolve(process.cwd(), "public/qr-frame.jpg");
+  const useCustomFrame =
+    normBank.toUpperCase() === "ACB" && fs.existsSync(framePath);
+
+  if (useCustomFrame) {
+    const sharpLib = await getSharp();
+    if (sharpLib) {
+      let rawQrBuffer: Buffer | null = null;
+
+      const sepayQrOnlyUrl = `https://qr.sepay.vn/img?bank=${encodeURIComponent(
+        normBank
+      )}&acc=${encodeURIComponent(accNo)}&template=qr_only&amount=${amount}&des=${encodeURIComponent(
+        memo
+      )}`;
+      try {
+        const res = await fetch(sepayQrOnlyUrl, { signal: AbortSignal.timeout(3500) });
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("image")) {
+          rawQrBuffer = Buffer.from(await res.arrayBuffer());
+        }
+      } catch {}
+
+      if (!rawQrBuffer) {
+        const vietQrOnlyUrl = `https://img.vietqr.io/image/${normBank}-${accNo}-qr_only.png?amount=${amount}&addInfo=${encodeURIComponent(
+          memo
+        )}`;
+        try {
+          const res = await fetch(vietQrOnlyUrl, { signal: AbortSignal.timeout(3500) });
+          const contentType = res.headers.get("content-type") || "";
+          if (res.ok && contentType.includes("image")) {
+            rawQrBuffer = Buffer.from(await res.arrayBuffer());
+          }
+        } catch {}
+      }
+
+      if (rawQrBuffer) {
+        try {
+          const cardSize = 590;
+          const qrSize = 540;
+          const borderRadius = 24;
+
+          const resizedQr = await sharpLib(rawQrBuffer)
+            .resize(qrSize, qrSize, { kernel: "nearest" })
+            .png()
+            .toBuffer();
+
+          const cardSvg = Buffer.from(`
+            <svg width="${cardSize}" height="${cardSize}">
+              <rect x="0" y="0" width="${cardSize}" height="${cardSize}" rx="${borderRadius}" ry="${borderRadius}" fill="#ffffff"/>
+            </svg>
+          `);
+
+          const cardBase = await sharpLib(cardSvg).png().toBuffer();
+          const qrPadding = Math.round((cardSize - qrSize) / 2);
+
+          const compositeCard = await sharpLib(cardBase)
+            .composite([{ input: resizedQr, top: qrPadding, left: qrPadding }])
+            .png()
+            .toBuffer();
+
+          const left = Math.round(513 - cardSize / 2);
+          const top = Math.round(503 - cardSize / 2);
+
+          return await sharpLib(framePath)
+            .composite([{ input: compositeCard, top, left }])
+            .jpeg({ quality: 92 })
+            .toBuffer();
+        } catch (err) {
+          console.error("⚠️ Lỗi ghép khung QR tùy chỉnh, chuyển về QR chuẩn:", err);
+        }
+      }
+    }
+  }
+
   const sepayUrl = `https://qr.sepay.vn/img?bank=${encodeURIComponent(
     normBank
   )}&acc=${encodeURIComponent(accNo)}&template=compact&amount=${amount}&des=${encodeURIComponent(
