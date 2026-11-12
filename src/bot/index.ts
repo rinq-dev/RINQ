@@ -111,7 +111,7 @@ async function getSharp(): Promise<any | null> {
   return cachedSharp;
 }
 
-// Helper: Tải ảnh mã QR (Ưu tiên ghép khung thương hiệu ACB, fallback SePay / VietQR chuẩn)
+// Helper: Tải ảnh mã QR (Ưu tiên ghép khung thương hiệu ACB, dùng chuẩn VietQR gốc)
 async function fetchQRCodeBuffer(
   bankId: string,
   accNo: string,
@@ -129,31 +129,16 @@ async function fetchQRCodeBuffer(
     if (sharpLib) {
       let rawQrBuffer: Buffer | null = null;
 
-      const sepayQrOnlyUrl = `https://qr.sepay.vn/img?bank=${encodeURIComponent(
-        normBank
-      )}&acc=${encodeURIComponent(accNo)}&template=qr_only&amount=${amount}&des=${encodeURIComponent(
+      const vietQrOnlyUrl = `https://img.vietqr.io/image/${normBank}-${accNo}-qr_only.png?amount=${amount}&addInfo=${encodeURIComponent(
         memo
       )}`;
       try {
-        const res = await fetch(sepayQrOnlyUrl, { signal: AbortSignal.timeout(3500) });
+        const res = await fetch(vietQrOnlyUrl, { signal: AbortSignal.timeout(4000) });
         const contentType = res.headers.get("content-type") || "";
-        if (res.ok && contentType.includes("image")) {
+        if (res.ok && (contentType.includes("image") || contentType.includes("svg"))) {
           rawQrBuffer = Buffer.from(await res.arrayBuffer());
         }
       } catch {}
-
-      if (!rawQrBuffer) {
-        const vietQrOnlyUrl = `https://img.vietqr.io/image/${normBank}-${accNo}-qr_only.png?amount=${amount}&addInfo=${encodeURIComponent(
-          memo
-        )}`;
-        try {
-          const res = await fetch(vietQrOnlyUrl, { signal: AbortSignal.timeout(3500) });
-          const contentType = res.headers.get("content-type") || "";
-          if (res.ok && contentType.includes("image")) {
-            rawQrBuffer = Buffer.from(await res.arrayBuffer());
-          }
-        } catch {}
-      }
 
       if (rawQrBuffer) {
         try {
@@ -162,7 +147,7 @@ async function fetchQRCodeBuffer(
           const borderRadius = 24;
 
           const resizedQr = await sharpLib(rawQrBuffer)
-            .resize(qrSize, qrSize, { kernel: "nearest" })
+            .resize(qrSize, qrSize)
             .png()
             .toBuffer();
 
@@ -188,34 +173,24 @@ async function fetchQRCodeBuffer(
             .jpeg({ quality: 92 })
             .toBuffer();
         } catch (err) {
-          console.error("⚠️ Lỗi ghép khung QR tùy chỉnh, chuyển về QR chuẩn:", err);
+          console.error("⚠️ Lỗi ghép khung QR tùy chỉnh, chuyển về VietQR chuẩn:", err);
         }
       }
     }
   }
 
-  const sepayUrl = `https://qr.sepay.vn/img?bank=${encodeURIComponent(
-    normBank
-  )}&acc=${encodeURIComponent(accNo)}&template=compact&amount=${amount}&des=${encodeURIComponent(
-    memo
-  )}`;
-  try {
-    const res = await fetch(sepayUrl, { signal: AbortSignal.timeout(3500) });
-    const contentType = res.headers.get("content-type") || "";
-    if (res.ok && contentType.includes("image")) {
-      const ab = await res.arrayBuffer();
-      return Buffer.from(ab);
-    }
-  } catch {}
-
   const vietQrUrl = `https://img.vietqr.io/image/${normBank}-${accNo}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(
     memo
   )}&accountName=${encodeURIComponent(accName)}`;
   try {
-    const res = await fetch(vietQrUrl, { signal: AbortSignal.timeout(3500) });
+    const res = await fetch(vietQrUrl, { signal: AbortSignal.timeout(4000) });
     const contentType = res.headers.get("content-type") || "";
-    if (res.ok && contentType.includes("image")) {
+    if (res.ok && (contentType.includes("image") || contentType.includes("svg"))) {
       const ab = await res.arrayBuffer();
+      const sharpLib = await getSharp();
+      if (sharpLib) {
+        return await sharpLib(Buffer.from(ab)).png().toBuffer();
+      }
       return Buffer.from(ab);
     }
   } catch {}
