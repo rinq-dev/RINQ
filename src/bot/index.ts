@@ -682,6 +682,17 @@ bot.command("start", async (ctx) => {
   await renderCatalog(ctx);
 });
 
+// Lệnh kiểm tra phiên bản bot
+bot.command("version", async (ctx) => {
+  await ctx.reply(
+    "🤖 <b>RINQ BOT: Build v1.2.1</b>\n" +
+    "• Tính năng: Chọn & nhập số lượng khi Mua ngay\n" +
+    "• Cổng thanh toán: ACB api5s + VietQR framed\n" +
+    "• Trạng thái: Sẵn sàng 24/7",
+    { parse_mode: "HTML" }
+  );
+});
+
 // 3. Xử lý menu bàn phím cố định dưới đáy & các Slash Commands
 async function handleShowGiveaways(ctx: any) {
   const gas = await getActiveGiveaways();
