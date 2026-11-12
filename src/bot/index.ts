@@ -699,6 +699,9 @@ bot.command(["help", "huongdan"], handleShowGuide);
 bot.hears(["💬 Liên hệ hỗ trợ", "🎧 Liên hệ hỗ trợ"], handleShowSupport);
 bot.command(["support", "admin"], handleShowSupport);
 
+bot.hears(["🤝 Giới thiệu", "Giới thiệu", "🤝 Kiếm tiền", "Kiếm tiền"], handleShowAffiliate);
+bot.command(["affiliate", "gioithieu", "ref"], handleShowAffiliate);
+
 // Helper tạo nội dung file text đơn hàng để tải xuống
 function generateOrderTextFile(orders: any[], userTelegramId: string, username?: string | null): string {
   const lineSep = "=".repeat(56);
@@ -1415,6 +1418,10 @@ bot.on("message:text", async (ctx, next) => {
       "Ví",
       "Nạp tiền",
       "🎁 Giveaway",
+      "🤝 Giới thiệu",
+      "Giới thiệu",
+      "🤝 Kiếm tiền",
+      "Kiếm tiền",
       "❓ Hướng dẫn mua",
       "❓ Cách mua",
       "💬 Liên hệ hỗ trợ",
@@ -2483,8 +2490,6 @@ async function handleShowAffiliate(ctx: any) {
   });
 }
 
-bot.hears(["🤝 Giới thiệu", "🤝 Kiếm tiền"], handleShowAffiliate);
-bot.command(["affiliate", "gioithieu", "ref"], handleShowAffiliate);
 bot.callbackQuery("menu_affiliate", async (ctx) => {
   await ctx.answerCallbackQuery().catch(() => {});
   await handleShowAffiliate(ctx);
