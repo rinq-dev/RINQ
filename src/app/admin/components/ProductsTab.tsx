@@ -26,11 +26,13 @@ import {
   ChevronLeft,
   ChevronRight,
   LoaderCircle,
+  Sparkles,
 } from "lucide-react";
 import { Product } from "../types";
 import ProductImageField from "./ProductImageField";
 import ScoopyImportPanel from "./ScoopyImportPanel";
 import RoboticImportPanel from "./RoboticImportPanel";
+import DescriptionStudioModal from "./DescriptionStudioModal";
 
 interface ProductsTabProps {
   products: Product[];
@@ -142,6 +144,7 @@ export default function ProductsTab({
   const [quickStockText, setQuickStockText] = useState("");
   const [quickNotify, setQuickNotify] = useState(true);
   const [isSubmittingQuickStock, setIsSubmittingQuickStock] = useState(false);
+  const [isNewProductStudioOpen, setIsNewProductStudioOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -822,12 +825,22 @@ export default function ProductsTab({
             <ProductImageField id="new-product-image" value={newProductImage} onChange={setNewProductImage} />
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Mô tả
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-600">
+                  Mô tả
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsNewProductStudioOpen(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#0e704b] text-[11px] font-bold border border-emerald-200 transition shadow-sm active:scale-95"
+                >
+                  <Sparkles className="h-3 w-3 text-emerald-600" />
+                  <span>⤢ Mở rộng Studio & Live Preview</span>
+                </button>
+              </div>
               <textarea
-                rows={2}
-                placeholder="Thông tin hiển thị cho khách"
+                rows={4}
+                placeholder="Thông tin hiển thị cho khách hoặc bấm Mở rộng Studio..."
                 value={newProductDesc}
                 onChange={(e) => setNewProductDesc(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
@@ -958,6 +971,16 @@ export default function ProductsTab({
           </form>
         </div>
       </div>
+
+      <DescriptionStudioModal
+        isOpen={isNewProductStudioOpen}
+        onClose={() => setIsNewProductStudioOpen(false)}
+        value={newProductDesc}
+        onSave={(newVal) => setNewProductDesc(newVal)}
+        productName={newProductName}
+        price={newProductPrice}
+        warranty={newProductWarranty}
+      />
     </div>
   );
 }

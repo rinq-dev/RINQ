@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
-import { Edit, X, Server } from "lucide-react";
+import React, { useState } from "react";
+import { Edit, X, Server, Sparkles } from "lucide-react";
 import { Product } from "../types";
 import ProductImageField from "./ProductImageField";
+import DescriptionStudioModal from "./DescriptionStudioModal";
 
 interface EditProductModalProps {
   editingProduct: Product | null;
@@ -62,6 +63,8 @@ export default function EditProductModal({
   subscriberCount,
   onUpdate,
 }: EditProductModalProps) {
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
+
   if (!editingProduct) return null;
 
   return (
@@ -174,15 +177,29 @@ export default function EditProductModal({
           <ProductImageField id="edit-product-image" value={editProductImage} onChange={setEditProductImage} />
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              Mô tả sản phẩm
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700">
+                Mô tả sản phẩm
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsStudioOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#0e704b] text-xs font-bold border border-emerald-200 transition shadow-sm active:scale-95"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                <span>⤢ Mở rộng Studio & Live Preview</span>
+              </button>
+            </div>
             <textarea
-              rows={2}
+              rows={4}
               value={editDesc}
               onChange={(e) => setEditDesc(e.target.value)}
+              placeholder="Nhập mô tả sản phẩm hoặc bấm 'Mở rộng Studio' để xem trước..."
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
             />
+            <p className="text-[11px] text-slate-500 mt-1">
+              💡 Bấm <b>⤢ Mở rộng Studio</b> để mở màn hình lớn, có mẫu soạn sẵn và xem trước trực tiếp trên Bot Telegram.
+            </p>
           </div>
 
           <div>
@@ -276,6 +293,16 @@ export default function EditProductModal({
           </div>
         </form>
       </div>
+
+      <DescriptionStudioModal
+        isOpen={isStudioOpen}
+        onClose={() => setIsStudioOpen(false)}
+        value={editDesc}
+        onSave={(newVal) => setEditDesc(newVal)}
+        productName={editName}
+        price={editPrice}
+        warranty={editWarranty}
+      />
     </div>
   );
 }
