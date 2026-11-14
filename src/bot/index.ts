@@ -607,6 +607,202 @@ async function renderCategoryProducts(ctx: any, categoryName: string, deletePrev
   });
 }
 
+// Helper: Tra cuu va giai ma tham so start tu Web thanh san pham
+export async function resolveProductFromStartParam(param: string): Promise<any | null> {
+  const raw = (param || "").trim();
+  if (!raw) return null;
+
+  // 1. Khop theo ID truc tiep: web_api_p29, prod_29, prod29, p_29, p29, 29
+  const idMatch = raw.match(/^(?:web_api_p|prod_?|p_?)(\d+)$/i) || raw.match(/^(\d+)$/);
+  if (idMatch) {
+    const id = parseInt(idMatch[1], 10);
+    if (!isNaN(id) && id > 0) {
+      const product = await fetchSingleProductWithSupplierMeta(id);
+      if (product && product.isActive) {
+        return product;
+      }
+    }
+  }
+
+  // 2. Tra cuu anh xa cac ID cu (legacy fallback neu web tro ma cu)
+  const LEGACY_ID_MAP: Record<number, number> = {
+    12: 29, // Claude
+    15: 28, // Codex
+    40: 26, // Grok
+    42: 25, // Kimi
+  };
+  if (idMatch) {
+    const id = parseInt(idMatch[1], 10);
+    if (LEGACY_ID_MAP[id]) {
+      const fallback = await fetchSingleProductWithSupplierMeta(LEGACY_ID_MAP[id]);
+      if (fallback && fallback.isActive) return fallback;
+    }
+  }
+
+  // 3. Tra cuu theo tu khoa hoac slug (sp_outlook, sp_claude, claude, codex...)
+  const slug = raw
+    .replace(/^(?:web_api_p|prod_|p_|sp_)/i, "")
+    .toLowerCase()
+    .trim();
+
+  if (!slug) return null;
+
+  const SLUG_MAP: Record<string, string[]> = {
+    outlook: ["outlook", "hotmail", "mail"],
+    hotmail: ["hotmail", "outlook"],
+    claude: ["claude"],
+    chatgpt: ["chatgpt", "codex", "gpt"],
+    codex: ["codex", "chatgpt"],
+    deepseek: ["deepseek"],
+    kimi: ["kimi", "moonshot"],
+    grok: ["grok", "xai"],
+    canva: ["canva"],
+    capcut: ["capcut"],
+    elevenlabs: ["elevenlabs", "eleven"],
+    adobe: ["adobe"],
+    qwen: ["qwen", "alibaba"],
+    gemini: ["gemini"],
+  };
+
+  const keywords = SLUG_MAP[slug] || [slug];
+
+  for (const kw of keywords) {
+    const products = await prisma.product.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { name: { contains: kw, mode: "insensitive" } },
+          { category: { contains: kw, mode: "insensitive" } },
+        ],
+      },
+      include: {
+        stocks: {
+          where: { isSold: false },
+        },
+      },
+      orderBy: { id: "desc" },
+    });
+
+    if (products.length > 0) {
+      const inStock = products.find((p) => getProductStockCount(p) > 0);
+      return inStock || products[0];
+    }
+  }
+
+  return null;
+}
+
+// Helper: Hien thi giao dien chi tiet san pham kem nut mua va bao hang
+export async function sendProductDetail(
+  ctx: any,
+  productOrId: number | any,
+  options?: { isCallback?: boolean; deleteOldMessage?: boolean; welcomeGreeting?: string }
+): Promise<boolean> {
+  const telegramId = String(ctx.from?.id);
+  checkoutStates.delete(telegramId);
+
+  const product =
+    typeof productOrId === "number"
+      ? await fetchSingleProductWithSupplierMeta(productOrId)
+      : productOrId;
+
+  if (!product) {
+    await ctx.reply("San pham khong ton tai hoac da bi go!");
+    return false;
+  }
+
+  const stockCount = getProductStockCount(product);
+  const desc = product.description || "Khong co mo ta them.";
+  const priceNoteText = (product as any).priceNote
+    ? `<blockquote><b>Ghi chu:</b>\n${(product as any).priceNote}</blockquote>\n\n`
+    : "";
+  let warrantyText = "";
+  if (product.warranty?.trim()) {
+    const rawWarranty = product.warranty.trim();
+    const hasHeader = /chinh sach bao hanh|chính sách bảo hành/i.test(rawWarranty.split("\n")[0] || "");
+    warrantyText = `<blockquote>${hasHeader ? "" : "<b>CHINH SACH BAO HANH:</b>\n"}${rawWarranty}</blockquote>\n\n`;
+  }
+
+  if (options?.deleteOldMessage) {
+    await ctx.deleteMessage().catch(() => {});
+  }
+
+  const stockStatusStr =
+    stockCount > 0
+      ? product.stocks?.length > 0
+        ? `San co <b>${product.stocks.length}</b> san pham`
+        : `San hang (Giao tuc thi 24/7)`
+      : "Tam het hang";
+
+  const flashSale = await getActiveFlashSale();
+  const effectivePrice = flashSale
+    ? calculateFlashSalePrice(product.price, flashSale.discountPercent)
+    : product.price;
+
+  const priceLine = flashSale
+    ? `• <b>Don gia:</b> <s>${formatVND(product.price)}</s> -> <b>${formatVND(effectivePrice)}</b> <i>(-${flashSale.discountPercent}% Flash Sale)</i>\n`
+    : `• <b>Don gia:</b> <b>${formatVND(product.price)}</b> / san pham\n`;
+
+  const greetingPrefix = options?.welcomeGreeting ? `${options.welcomeGreeting}\n\n` : "";
+
+  const text =
+    greetingPrefix +
+    `[ <b>${product.name.toUpperCase()}</b> ]\n` +
+    priceLine +
+    `• <b>Tinh trang:</b> ${stockStatusStr}\n` +
+    `• <b>Hinh thuc:</b> Giao tai nguyen tu dong 24/7\n\n` +
+    priceNoteText +
+    `<b>Thong tin & Mo ta chi tiet:</b>\n${desc}\n\n` +
+    warrantyText +
+    (stockCount > 0
+      ? `Kinh moi Quy khach lua chon nut ben duoi de tien hanh thanh toan:`
+      : `<blockquote>Thong bao: San pham hien dang tam het hang. Quy khach vui long bam nut nhan bao hang de duoc thong bao ngay khi co hang.</blockquote>`);
+
+  const keyboard = new InlineKeyboard();
+  if (stockCount > 0) {
+    keyboard.text("Mua ngay", `buy:${product.id}`).row();
+    keyboard.text("Dung ma giam gia", `coupon_info:${product.id}`).row();
+  } else {
+    const isSubbed = await prisma.restockSubscription.findUnique({
+      where: {
+        productId_telegramId: {
+          productId: product.id,
+          telegramId,
+        },
+      },
+    }).catch(() => null);
+
+    if (isSubbed) {
+      keyboard.text("Huy nhan bao hang", `restock_unsub:${product.id}`).row();
+    } else {
+      keyboard.text("Bao cho toi khi co hang", `restock_sub:${product.id}`).row();
+    }
+  }
+  if (product.category && product.category.trim()) {
+    keyboard.text(`Quay lai danh muc ${product.category}`, `cat:${product.category}`).row();
+  }
+  keyboard.text("Ve tat ca danh muc", "menu_products");
+
+  if (product.imageUrl && product.imageUrl.trim() && text.length <= 1024) {
+    try {
+      await ctx.replyWithPhoto(product.imageUrl.trim(), {
+        caption: text,
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+      });
+      return true;
+    } catch (photoErr) {
+      console.warn("Loi gui anh san pham, chuyen sang tin nhan van ban:", photoErr);
+    }
+  }
+
+  await ctx.reply(text, {
+    parse_mode: "HTML",
+    reply_markup: keyboard,
+  });
+  return true;
+}
+
 // 2. Command /start
 bot.command("start", async (ctx) => {
   const match = ctx.match?.trim() || "";
@@ -621,15 +817,15 @@ bot.command("start", async (ctx) => {
 
       if (verified) {
         await ctx.reply(
-          `✅ <b>ĐĂNG NHẬP THÀNH CÔNG!</b>\n\n` +
-          `Xin chào <b>${ctx.from.first_name}</b>, bạn đã liên kết tài khoản Telegram thành công cho phiên mua sắm trên Web.\n\n` +
-          `👉 <b>Hãy quay lại trình duyệt</b>, trang web đã tự động nhận diện và sẵn sàng tiếp tục đơn hàng của bạn!`,
+          `<b>DANG NHAP THANH CONG!</b>\n\n` +
+          `Xin chao <b>${ctx.from.first_name}</b>, ban da lien ket tai khoan Telegram thanh cong cho phien mua sam tren Web.\n\n` +
+          `Hay quay lai trinh duyet, trang web da tu dong nhan dien va san sang tiep tuc don hang cua ban!`,
           { parse_mode: "HTML" }
         );
         return;
       } else {
         await ctx.reply(
-          `⚠️ <b>Phiên đăng nhập không hợp lệ hoặc đã hết hạn!</b>\n\nVui lòng quay lại website bấm "Đăng nhập Telegram" để lấy mã mới.`,
+          `<b>Phien dang nhap khong hop le hoac da het han!</b>\n\nVui long quay lai website bam "Dang nhap Telegram" de lay ma moi.`,
           { parse_mode: "HTML" }
         );
         return;
@@ -641,6 +837,24 @@ bot.command("start", async (ctx) => {
     addSubscriber(String(ctx.from.id), ctx.from.username, ctx.from.first_name).catch(() => {});
     if (match.startsWith("ref_")) {
       recordReferral(match, String(ctx.from.id)).catch(() => {});
+    }
+  }
+
+  // Xu ly tham so san pham tu Web (web_api_p..., sp_..., prod_..., p_...)
+  if (match && !match.startsWith("ref_")) {
+    const targetProduct = await resolveProductFromStartParam(match);
+    if (targetProduct) {
+      const rawName = ctx.from?.first_name || "";
+      const customerName = rawName ? `<b>${escapeHtml(rawName)}</b>` : "<b>Quy khach</b>";
+      const greeting =
+        `[ <b>RINQ SHOP · GIAO DICH TU DONG 24/7</b> ]\n` +
+        `Kinh chao ${customerName}, ban vua chon san pham tu Website.\n` +
+        `Thong tin chi tiet va tien hanh thanh toan:`;
+
+      await sendProductDetail(ctx, targetProduct, {
+        welcomeGreeting: greeting,
+      });
+      return;
     }
   }
 
@@ -897,106 +1111,11 @@ async function showUserOrders(ctx: any, deletePrevious = false) {
   await ctx.reply(text, { parse_mode: "HTML", reply_markup: keyboard });
 }
 
-// 4. Callback Query: Xem chi tiết sản phẩm `prod:<id>` (XÓA TIN NHẮN CŨ ĐỂ THAY THẾ)
+// 4. Callback Query: Xem chi tiet san pham `prod:<id>` (XOA TIN NHAN CU DE THAY THE)
 bot.callbackQuery(/^prod:(\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery().catch(() => {});
-  const telegramId = String(ctx.from?.id);
-  checkoutStates.delete(telegramId);
   const productId = parseInt(ctx.match[1], 10);
-
-  const product = await fetchSingleProductWithSupplierMeta(productId);
-
-  if (!product) {
-    await ctx.reply("❌ Sản phẩm không tồn tại hoặc đã bị gỡ!");
-    return;
-  }
-
-  const stockCount = getProductStockCount(product);
-  const desc = product.description || "Không có mô tả thêm.";
-  const priceNoteText = (product as any).priceNote
-    ? `<blockquote>📝 <b>Ghi chú:</b>\n${(product as any).priceNote}</blockquote>\n\n`
-    : "";
-  let warrantyText = "";
-  if (product.warranty?.trim()) {
-    const rawWarranty = product.warranty.trim();
-    const hasHeader = /chính sách bảo hành/i.test(rawWarranty.split("\n")[0] || "");
-    warrantyText = `<blockquote>${hasHeader ? "" : "🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n"}${rawWarranty}</blockquote>\n\n`;
-  }
-
-  // Xóa tin nhắn danh mục cũ để thay thế bằng giao diện chi tiết sản phẩm
-  await ctx.deleteMessage().catch(() => {});
-
-  const stockStatusStr =
-    stockCount > 0
-      ? product.stocks.length > 0
-        ? `🟢 Sẵn có <b>${product.stocks.length}</b> sản phẩm`
-        : `🟢 Sẵn hàng (Giao tức thì 24/7)`
-      : "🔴 Tạm hết hàng";
-
-  const flashSale = await getActiveFlashSale();
-  const effectivePrice = flashSale
-    ? calculateFlashSalePrice(product.price, flashSale.discountPercent)
-    : product.price;
-
-  const priceLine = flashSale
-    ? `• <b>Đơn giá:</b> <s>${formatVND(product.price)}</s> ➔ <b>${formatVND(effectivePrice)}</b> 🔥 <i>(-${flashSale.discountPercent}% Flash Sale)</i>\n`
-    : `• <b>Đơn giá:</b> <b>${formatVND(product.price)}</b> / sản phẩm\n`;
-
-  const text =
-    `❖ <b>${product.name.toUpperCase()}</b>\n` +
-    priceLine +
-    `• <b>Tình trạng:</b> ${stockStatusStr}\n` +
-    `• <b>Hình thức giao dịch:</b> Giao tài nguyên tự động tức thì 24/7\n\n` +
-    priceNoteText +
-    `📝 <b>Thông tin & Mô tả chi tiết:</b>\n${desc}\n\n` +
-    warrantyText +
-    (stockCount > 0
-      ? `Kính mời Quý khách lựa chọn nút bên dưới để tiến hành thanh toán:`
-      : `<blockquote>⚠️ <i>Sản phẩm hiện đang tạm hết hàng. Quý khách vui lòng theo dõi thông báo hoặc liên hệ Admin để đặt trước.</i></blockquote>`);
-
-  const keyboard = new InlineKeyboard();
-  if (stockCount > 0) {
-    keyboard.text("💳 Mua ngay", `buy:${product.id}`).row();
-    keyboard.text("🏷 Dùng mã giảm giá", `coupon_info:${product.id}`).row();
-  } else {
-    const telegramId = String(ctx.from?.id);
-    const isSubbed = await prisma.restockSubscription.findUnique({
-      where: {
-        productId_telegramId: {
-          productId: product.id,
-          telegramId,
-        },
-      },
-    }).catch(() => null);
-
-    if (isSubbed) {
-      keyboard.text("🔕 Hủy nhận báo hàng", `restock_unsub:${product.id}`).row();
-    } else {
-      keyboard.text("🔔 Báo cho tôi khi có hàng", `restock_sub:${product.id}`).row();
-    }
-  }
-  if (product.category && product.category.trim()) {
-    keyboard.text(`🔙 Quay lại danh mục ${product.category}`, `cat:${product.category}`).row();
-  }
-  keyboard.text("📁 Về tất cả danh mục", "menu_products");
-
-  if (product.imageUrl && product.imageUrl.trim()) {
-    try {
-      await ctx.replyWithPhoto(product.imageUrl.trim(), {
-        caption: text,
-        parse_mode: "HTML",
-        reply_markup: keyboard,
-      });
-      return;
-    } catch (photoErr) {
-      console.warn("Lỗi gửi ảnh sản phẩm, chuyển sang tin nhắn văn bản:", photoErr);
-    }
-  }
-
-  await ctx.reply(text, {
-    parse_mode: "HTML",
-    reply_markup: keyboard,
-  });
+  await sendProductDetail(ctx, productId, { deleteOldMessage: true });
 });
 
 // Callback Query: Xem các loại sản phẩm theo danh mục `cat:<name>`
