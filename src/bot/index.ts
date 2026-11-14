@@ -692,7 +692,7 @@ export async function resolveProductFromStartParam(param: string): Promise<any |
   return null;
 }
 
-// Helper: Hien thi giao dien chi tiet san pham kem nut mua va bao hang
+// Helper: Hiển thị giao diện chi tiết sản phẩm kèm nút mua và báo hàng
 export async function sendProductDetail(
   ctx: any,
   productOrId: number | any,
@@ -707,20 +707,20 @@ export async function sendProductDetail(
       : productOrId;
 
   if (!product) {
-    await ctx.reply("San pham khong ton tai hoac da bi go!");
+    await ctx.reply("Sản phẩm không tồn tại hoặc đã bị gỡ!");
     return false;
   }
 
   const stockCount = getProductStockCount(product);
-  const desc = product.description || "Khong co mo ta them.";
+  const desc = product.description || "Không có mô tả thêm.";
   const priceNoteText = (product as any).priceNote
-    ? `<blockquote><b>Ghi chu:</b>\n${(product as any).priceNote}</blockquote>\n\n`
+    ? `<blockquote><b>Ghi chú:</b>\n${(product as any).priceNote}</blockquote>\n\n`
     : "";
   let warrantyText = "";
   if (product.warranty?.trim()) {
     const rawWarranty = product.warranty.trim();
-    const hasHeader = /chinh sach bao hanh|chính sách bảo hành/i.test(rawWarranty.split("\n")[0] || "");
-    warrantyText = `<blockquote>${hasHeader ? "" : "<b>CHINH SACH BAO HANH:</b>\n"}${rawWarranty}</blockquote>\n\n`;
+    const hasHeader = /chính sách bảo hành/i.test(rawWarranty.split("\n")[0] || "");
+    warrantyText = `<blockquote>${hasHeader ? "" : "<b>CHÍNH SÁCH BẢO HÀNH:</b>\n"}${rawWarranty}</blockquote>\n\n`;
   }
 
   if (options?.deleteOldMessage) {
@@ -730,9 +730,9 @@ export async function sendProductDetail(
   const stockStatusStr =
     stockCount > 0
       ? product.stocks?.length > 0
-        ? `San co <b>${product.stocks.length}</b> san pham`
-        : `San hang (Giao tuc thi 24/7)`
-      : "Tam het hang";
+        ? `Sẵn có <b>${product.stocks.length}</b> sản phẩm`
+        : `Sẵn hàng (Giao tức thì 24/7)`
+      : "Tạm hết hàng";
 
   const flashSale = await getActiveFlashSale();
   const effectivePrice = flashSale
@@ -740,8 +740,8 @@ export async function sendProductDetail(
     : product.price;
 
   const priceLine = flashSale
-    ? `• <b>Don gia:</b> <s>${formatVND(product.price)}</s> -> <b>${formatVND(effectivePrice)}</b> <i>(-${flashSale.discountPercent}% Flash Sale)</i>\n`
-    : `• <b>Don gia:</b> <b>${formatVND(product.price)}</b> / san pham\n`;
+    ? `• <b>Đơn giá:</b> <s>${formatVND(product.price)}</s> -> <b>${formatVND(effectivePrice)}</b> <i>(-${flashSale.discountPercent}% Flash Sale)</i>\n`
+    : `• <b>Đơn giá:</b> <b>${formatVND(product.price)}</b> / sản phẩm\n`;
 
   const greetingPrefix = options?.welcomeGreeting ? `${options.welcomeGreeting}\n\n` : "";
 
@@ -749,19 +749,19 @@ export async function sendProductDetail(
     greetingPrefix +
     `[ <b>${product.name.toUpperCase()}</b> ]\n` +
     priceLine +
-    `• <b>Tinh trang:</b> ${stockStatusStr}\n` +
-    `• <b>Hinh thuc:</b> Giao tai nguyen tu dong 24/7\n\n` +
+    `• <b>Tình trạng:</b> ${stockStatusStr}\n` +
+    `• <b>Hình thức:</b> Giao tài nguyên tự động 24/7\n\n` +
     priceNoteText +
-    `<b>Thong tin & Mo ta chi tiet:</b>\n${desc}\n\n` +
+    `<b>Thông tin & Mô tả chi tiết:</b>\n${desc}\n\n` +
     warrantyText +
     (stockCount > 0
-      ? `Kinh moi Quy khach lua chon nut ben duoi de tien hanh thanh toan:`
-      : `<blockquote>Thong bao: San pham hien dang tam het hang. Quy khach vui long bam nut nhan bao hang de duoc thong bao ngay khi co hang.</blockquote>`);
+      ? `Kính mời Quý khách lựa chọn nút bên dưới để tiến hành thanh toán:`
+      : `<blockquote>Thông báo: Sản phẩm hiện đang tạm hết hàng. Quý khách vui lòng bấm nút nhận báo hàng để được thông báo ngay khi có hàng.</blockquote>`);
 
   const keyboard = new InlineKeyboard();
   if (stockCount > 0) {
     keyboard.text("Mua ngay", `buy:${product.id}`).row();
-    keyboard.text("Dung ma giam gia", `coupon_info:${product.id}`).row();
+    keyboard.text("Dùng mã giảm giá", `coupon_info:${product.id}`).row();
   } else {
     const isSubbed = await prisma.restockSubscription.findUnique({
       where: {
@@ -773,15 +773,15 @@ export async function sendProductDetail(
     }).catch(() => null);
 
     if (isSubbed) {
-      keyboard.text("Huy nhan bao hang", `restock_unsub:${product.id}`).row();
+      keyboard.text("Hủy nhận báo hàng", `restock_unsub:${product.id}`).row();
     } else {
-      keyboard.text("Bao cho toi khi co hang", `restock_sub:${product.id}`).row();
+      keyboard.text("Báo cho tôi khi có hàng", `restock_sub:${product.id}`).row();
     }
   }
   if (product.category && product.category.trim()) {
-    keyboard.text(`Quay lai danh muc ${product.category}`, `cat:${product.category}`).row();
+    keyboard.text(`Quay lại danh mục ${product.category}`, `cat:${product.category}`).row();
   }
-  keyboard.text("Ve tat ca danh muc", "menu_products");
+  keyboard.text("Về tất cả danh mục", "menu_products");
 
   if (product.imageUrl && product.imageUrl.trim() && text.length <= 1024) {
     try {
@@ -792,7 +792,7 @@ export async function sendProductDetail(
       });
       return true;
     } catch (photoErr) {
-      console.warn("Loi gui anh san pham, chuyen sang tin nhan van ban:", photoErr);
+      console.warn("Lỗi gửi ảnh sản phẩm, chuyển sang tin nhắn văn bản:", photoErr);
     }
   }
 
@@ -817,15 +817,15 @@ bot.command("start", async (ctx) => {
 
       if (verified) {
         await ctx.reply(
-          `<b>DANG NHAP THANH CONG!</b>\n\n` +
-          `Xin chao <b>${ctx.from.first_name}</b>, ban da lien ket tai khoan Telegram thanh cong cho phien mua sam tren Web.\n\n` +
-          `Hay quay lai trinh duyet, trang web da tu dong nhan dien va san sang tiep tuc don hang cua ban!`,
+          `<b>ĐĂNG NHẬP THÀNH CÔNG!</b>\n\n` +
+          `Xin chào <b>${ctx.from.first_name}</b>, bạn đã liên kết tài khoản Telegram thành công cho phiên mua sắm trên Web.\n\n` +
+          `Hãy quay lại trình duyệt, trang web đã tự động nhận diện và sẵn sàng tiếp tục đơn hàng của bạn!`,
           { parse_mode: "HTML" }
         );
         return;
       } else {
         await ctx.reply(
-          `<b>Phien dang nhap khong hop le hoac da het han!</b>\n\nVui long quay lai website bam "Dang nhap Telegram" de lay ma moi.`,
+          `<b>Phiên đăng nhập không hợp lệ hoặc đã hết hạn!</b>\n\nVui lòng quay lại website bấm "Đăng nhập Telegram" để lấy mã mới.`,
           { parse_mode: "HTML" }
         );
         return;
@@ -840,16 +840,16 @@ bot.command("start", async (ctx) => {
     }
   }
 
-  // Xu ly tham so san pham tu Web (web_api_p..., sp_..., prod_..., p_...)
+  // Xử lý tham số sản phẩm từ Web (web_api_p..., sp_..., prod_..., p_...)
   if (match && !match.startsWith("ref_")) {
     const targetProduct = await resolveProductFromStartParam(match);
     if (targetProduct) {
       const rawName = ctx.from?.first_name || "";
-      const customerName = rawName ? `<b>${escapeHtml(rawName)}</b>` : "<b>Quy khach</b>";
+      const customerName = rawName ? `<b>${escapeHtml(rawName)}</b>` : "<b>Quý khách</b>";
       const greeting =
-        `[ <b>RINQ SHOP · GIAO DICH TU DONG 24/7</b> ]\n` +
-        `Kinh chao ${customerName}, ban vua chon san pham tu Website.\n` +
-        `Thong tin chi tiet va tien hanh thanh toan:`;
+        `[ <b>RINQ SHOP · GIAO DỊCH TỰ ĐỘNG 24/7</b> ]\n` +
+        `Kính chào ${customerName}, bạn vừa chọn sản phẩm từ Website.\n` +
+        `Thông tin chi tiết và tiến hành thanh toán:`;
 
       await sendProductDetail(ctx, targetProduct, {
         welcomeGreeting: greeting,
