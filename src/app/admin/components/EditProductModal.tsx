@@ -155,7 +155,7 @@ export default function EditProductModal({
     const parts = [];
     let remaining = str;
     let keyIdx = 0;
-    const regex = /(<b>(.*?)<\/b>|<code>(.*?)<\/code>|<i>(.*?)<\/i>|\*\*(.*?)\*\*|`([^`]+)`)/i;
+    const regex = /(?:<a\s+(?:[^>]*?\s+)?href=["']([^"']+)["'][^>]*>(.*?)<\/a>|<b>(.*?)<\/b>|<code>(.*?)<\/code>|<i>(.*?)<\/i>|\*\*(.*?)\*\*|`([^`]+)`|(https?:\/\/[^\s<>)"]+))/i;
 
     while (remaining) {
       const match = remaining.match(regex);
@@ -169,15 +169,41 @@ export default function EditProductModal({
       }
 
       const fullMatch = match[0];
-      if (fullMatch.startsWith("<b>") || fullMatch.startsWith("**")) {
-        const inner = match[2] || match[5] || "";
+      if (fullMatch.startsWith("<a") || fullMatch.startsWith("<A")) {
+        const href = match[1] || "#";
+        const label = match[2] || href;
+        parts.push(
+          <a
+            key={keyIdx++}
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sky-400 font-mono text-[11px] underline break-all select-all inline hover:text-sky-300"
+          >
+            {label}
+          </a>
+        );
+      } else if (fullMatch.startsWith("http://") || fullMatch.startsWith("https://")) {
+        parts.push(
+          <a
+            key={keyIdx++}
+            href={fullMatch}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sky-400 font-mono text-[11px] underline break-all select-all inline hover:text-sky-300"
+          >
+            {fullMatch}
+          </a>
+        );
+      } else if (fullMatch.startsWith("<b>") || fullMatch.startsWith("**")) {
+        const inner = match[3] || match[6] || "";
         parts.push(
           <strong key={keyIdx++} className="font-bold text-white">
             {inner}
           </strong>
         );
       } else if (fullMatch.startsWith("<code>") || fullMatch.startsWith("`")) {
-        const inner = match[3] || match[6] || "";
+        const inner = match[4] || match[7] || "";
         parts.push(
           <code
             key={keyIdx++}
@@ -187,7 +213,7 @@ export default function EditProductModal({
           </code>
         );
       } else if (fullMatch.startsWith("<i>")) {
-        const inner = match[4] || "";
+        const inner = match[5] || "";
         parts.push(
           <em key={keyIdx++} className="italic text-slate-300">
             {inner}
@@ -212,48 +238,55 @@ export default function EditProductModal({
 
     const lines = raw.split("\n");
     return (
-      <div className="space-y-1.5 leading-relaxed text-xs sm:text-sm text-slate-100">
+      <div className="space-y-1.5 leading-relaxed text-xs sm:text-sm text-slate-100 break-words">
         {lines.map((line, idx) => {
-          if (!line.trim()) {
+          const trimmed = line.trim();
+          if (!trimmed) {
             return <div key={idx} className="h-1.5" />;
           }
 
-          const isStep = /^(\[Buoc|\d+\.|Buoc)/i.test(line.trim());
-          const isBullet = line.trim().startsWith("- ") || line.trim().startsWith("• ");
-          const isWarning = /^(Luu y|\*)/i.test(line.trim());
-
-          const formattedParts = parseInlineTags(line);
+          const isStep = /^(\[Buoc|\d+\.|Buoc)/i.test(trimmed);
+          const isBullet = trimmed.startsWith("- ") || trimmed.startsWith("• ");
+          const isWarning = /^(Luu y|\*)/i.test(trimmed);
 
           if (isStep) {
+            const stepMatch = trimmed.match(/^(\[Buoc\s*\d*\]|\d+\.|Buoc\s*\d*)\s*[:.-]?\s*(.*)$/i);
+            const stepPrefix = stepMatch ? stepMatch[1] : "[>]";
+            const stepBody = stepMatch ? stepMatch[2] : trimmed;
             return (
               <div key={idx} className="flex items-start gap-1.5 bg-emerald-950/40 border border-emerald-500/25 rounded-xl px-2.5 py-1 text-emerald-200">
-                <span className="font-semibold text-emerald-400">[&gt;]</span>
-                <div className="flex-1 text-slate-100 text-xs">{formattedParts}</div>
+                <span className="font-semibold text-emerald-400 shrink-0">{stepPrefix}</span>
+                <div className="flex-1 text-slate-100 text-xs break-words">{parseInlineTags(stepBody)}</div>
               </div>
             );
           }
 
           if (isWarning) {
+            let cleanWarn = trimmed;
+            if (cleanWarn.startsWith("* ")) cleanWarn = cleanWarn.substring(2);
             return (
               <div key={idx} className="flex items-start gap-1.5 bg-amber-950/40 border border-amber-500/25 rounded-xl px-2.5 py-1 text-amber-200 text-xs">
-                <span className="text-amber-400 font-bold">[!]</span>
-                <div className="flex-1">{formattedParts}</div>
+                <span className="text-amber-400 font-bold shrink-0">[!]</span>
+                <div className="flex-1 break-words">{parseInlineTags(cleanWarn)}</div>
               </div>
             );
           }
 
           if (isBullet) {
+            let cleanBullet = trimmed;
+            if (cleanBullet.startsWith("- ")) cleanBullet = cleanBullet.substring(2);
+            else if (cleanBullet.startsWith("• ")) cleanBullet = cleanBullet.substring(2);
             return (
-              <div key={idx} className="flex items-start gap-1.5 pl-1.5 text-slate-200 text-xs">
-                <span className="text-emerald-400 font-bold">-</span>
-                <div className="flex-1">{formattedParts}</div>
+              <div key={idx} className="flex items-start gap-1.5 pl-1 text-slate-200 text-xs">
+                <span className="text-emerald-400 font-bold shrink-0">•</span>
+                <div className="flex-1 break-words">{parseInlineTags(cleanBullet)}</div>
               </div>
             );
           }
 
           return (
-            <p key={idx} className="text-xs text-slate-200">
-              {formattedParts}
+            <p key={idx} className="text-xs text-slate-200 break-words">
+              {parseInlineTags(trimmed)}
             </p>
           );
         })}
@@ -289,7 +322,7 @@ export default function EditProductModal({
 
         {/* 2-COLUMN SPLIT VIEW FORM */}
         <form onSubmit={onUpdate} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-5 sm:p-6 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* COT 1 (BEN TRAI - 6 PHAN): THONG TIN CO BAN & GIA */}
               <div className="lg:col-span-6 space-y-3.5 border-b lg:border-b-0 lg:border-r border-slate-200/90 lg:pr-6 pb-6 lg:pb-0">
@@ -596,7 +629,7 @@ export default function EditProductModal({
                   </div>
                 ) : (
                   /* GIAO DIEN XEM TRUOC TELEGRAM BOT */
-                  <div className="rounded-2xl bg-[#1e293b] border border-[#334155] p-4 text-slate-100 shadow-xl space-y-2.5 max-h-[500px] overflow-y-auto custom-scrollbar">
+                  <div className="rounded-2xl bg-[#1e293b] border border-[#334155] p-4 text-slate-100 shadow-xl space-y-3">
                     {/* Header bot */}
                     <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
                       <div className="flex items-center gap-2">
@@ -617,8 +650,8 @@ export default function EditProductModal({
                     </div>
 
                     {/* Body message */}
-                    <div className="space-y-1.5 text-xs">
-                      <p className="font-bold text-white text-sm">
+                    <div className="space-y-2 text-xs">
+                      <p className="font-bold text-white text-sm break-words">
                         [RINQ] {(editName || "TEN SAN PHAM").toUpperCase()}
                       </p>
                       <p className="text-emerald-400 font-semibold">
@@ -629,7 +662,7 @@ export default function EditProductModal({
                       </p>
 
                       {editPriceReason ? (
-                        <blockquote className="border-l-2 border-emerald-500 pl-2 text-slate-300 italic text-[11px] bg-slate-900/40 py-0.5 rounded-r">
+                        <blockquote className="border-l-2 border-emerald-500 pl-2 text-slate-300 italic text-[11px] bg-slate-900/40 py-0.5 rounded-r break-words">
                           <b>Ghi chu:</b> {editPriceReason}
                         </blockquote>
                       ) : null}
@@ -645,7 +678,7 @@ export default function EditProductModal({
 
                       {editWarranty ? (
                         <div className="pt-1.5">
-                          <blockquote className="border-l-2 border-violet-400 pl-2.5 py-1 text-[11px] text-violet-200 bg-violet-950/30 rounded-r">
+                          <blockquote className="border-l-2 border-violet-400 pl-2.5 py-1 text-[11px] text-violet-200 bg-violet-950/30 rounded-r break-words">
                             <b>CHINH SACH BAO HANH:</b>
                             <br />
                             {editWarranty}
@@ -659,12 +692,12 @@ export default function EditProductModal({
                     </div>
 
                     {/* Buttons simulation */}
-                    <div className="space-y-1 pt-1.5">
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <div className="py-1.5 px-2 rounded-xl bg-slate-700/80 text-slate-200 text-[11px] font-semibold text-center border border-slate-600/40">
+                    <div className="space-y-1.5 pt-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="py-2.5 px-3 rounded-xl bg-slate-700/90 text-slate-100 text-xs font-bold text-center border border-slate-600/50 shadow-sm">
                           Mua ngay
                         </div>
-                        <div className="py-1.5 px-2 rounded-xl bg-slate-700/80 text-slate-200 text-[11px] font-semibold text-center border border-slate-600/40">
+                        <div className="py-2.5 px-3 rounded-xl bg-slate-700/90 text-slate-100 text-xs font-bold text-center border border-slate-600/50 shadow-sm">
                           Dung ma giam gia
                         </div>
                       </div>
