@@ -50,37 +50,37 @@ interface EditProductModalProps {
 const TEMPLATES = [
   {
     title: "Acc Mail | OTP",
-    content: `- Định dạng: email | link_lay_otp
-- Đăng nhập bằng OTP (không cần mật khẩu), nhập email rồi lấy mã OTP tại link
-👉 Bước 1: Mở ứng dụng/trang chủ và nhập email được hệ thống cấp, sau đó bấm Tiếp tục
-👉 Bước 2: Mở một tab trình duyệt mới, dán link lấy OTP để nhận mã xác thực 6 số
-👉 Bước 3: Nhập mã OTP vào trang dịch vụ để hoàn tất đăng nhập
-⚠️ Lưu ý: Bảo hành đăng nhập thành công trong vòng 1 giờ từ khi mua. Vui lòng kiểm tra tài khoản ngay sau khi nhận hàng.`,
+    content: `- Dinh dang: email | link_lay_otp
+- Dang nhap bang OTP (khong can mat khau), nhap email roi lay ma OTP tai link
+[Buoc 1]: Mo ung dung/trang chu va nhap email duoc he thong cap, sau do bam Tiep tuc
+[Buoc 2]: Mo mot tab trinh duyet moi, dan link lay OTP de nhan ma xac thuc 6 so
+[Buoc 3]: Nhap ma OTP vao trang dich vu de hoan tat dang nhap
+Luu y: Bao hanh dang nhap thanh cong trong 1 gio tu khi mua. Vui long kiem tra tai khoan ngay sau khi nhan hang.`,
   },
   {
     title: "Acc Mail : Pass : 2FA",
-    content: `- Định dạng: email | mat_khau | ma_2fa_secret
-👉 Bước 1: Đăng nhập bằng Email và Mật khẩu được cấp
-👉 Bước 2: Tại màn hình yêu cầu mã 2FA, truy cập trang https://2fa.live (hoặc app Google Authenticator)
-👉 Bước 3: Dán mã 2FA Secret vào để lấy mã 6 chữ số đang chạy
-👉 Bước 4: Nhập mã 6 số để đăng nhập thành công
-⚠️ Lưu ý: Không tự ý thay đổi email/mật khẩu để được bảo hành toàn thời gian.`,
+    content: `- Dinh dang: email | mat_khau | ma_2fa_secret
+[Buoc 1]: Dang nhap bang Email va Mat khau duoc cap
+[Buoc 2]: Tai man hinh yeu cau ma 2FA, truy cap trang https://2fa.live (hoac app Google Authenticator)
+[Buoc 3]: Dan ma 2FA Secret vao de lay ma 6 chu so dang chay
+[Buoc 4]: Nhap ma 6 so de dang nhap thanh cong
+Luu y: Khong tu y thay doi email/mat khau de duoc bao hanh toan thoi gian.`,
   },
   {
-    title: "Key Bản Quyền",
-    content: `- Định dạng: Mã bản quyền License Key (XXXXX-XXXXX-XXXXX-XXXXX)
-👉 Bước 1: Tải bộ cài đặt phần mềm chính hãng từ trang chủ nhà phát hành
-👉 Bước 2: Cài đặt và mở ứng dụng, tìm mục "Cài đặt" -> "Kích hoạt bản quyền" (Activate License)
-👉 Bước 3: Dán mã bản quyền đã mua và bấm Xác nhận
-⚠️ Lưu ý: Mỗi key sử dụng cho 1 thiết bị/tài khoản theo gói đã chọn. Cam kết bảo hành 1 đổi 1 suốt thời hạn gói.`,
+    title: "Key Ban Quyen",
+    content: `- Dinh dang: Ma ban quyen License Key (XXXXX-XXXXX-XXXXX-XXXXX)
+[Buoc 1]: Tai bo cai dat phan mem chinh hang tu trang chu nha phat hanh
+[Buoc 2]: Cai dat va mo ung dung, tim muc "Cai dat" -> "Kich hoat ban quyen" (Activate License)
+[Buoc 3]: Dan ma ban quyen da mua va bam Xac nhan
+Luu y: Moi key su dung cho 1 thiet bi/tai khoan theo goi da chon. Cam ket bao hanh 1 doi 1 suot thoi han goi.`,
   },
   {
-    title: "Nâng Cấp Chính Chủ",
-    content: `- Hình thức: Nâng cấp trực tiếp trên tài khoản email chính chủ của Quý khách
-👉 Bước 1: Sau khi thanh toán, gửi email tài khoản của Quý khách cho Admin/Bot
-👉 Bước 2: Kiểm tra hòm thư đến (hoặc hòm thư Spam/Rác) để nhận email lời mời
-👉 Bước 3: Bấm vào đường link trong email để chấp nhận tham gia gói dịch vụ
-⚠️ Lưu ý: RINQ SHOP tuyệt đối không yêu cầu mật khẩu tài khoản của Quý khách. Đảm bảo an toàn 100%.`,
+    title: "Nang Cap Chinh Chu",
+    content: `- Hinh thuc: Nang cap truc tiep tren tai khoan email chinh chu cua Quy khach
+[Buoc 1]: Sau khi thanh toan, gui email tai khoan cua Quy khach cho Admin/Bot
+[Buoc 2]: Kiem tra hom thu den (hoac hom thu Spam/Rac) de nhan email loi moi
+[Buoc 3]: Bam vao duong link trong email de chap nhan tham gia goi dich vu
+Luu y: RINQ SHOP tuyet doi khong yeu cau mat khau tai khoan cua Quy khach. Dam bao an toan 100%.`,
   },
 ];
 
@@ -136,7 +136,7 @@ export default function EditProductModal({
   const applyTemplate = (content: string) => {
     if (editDesc.trim() && editDesc.trim() !== content.trim()) {
       const confirmReplace = window.confirm(
-        "Mô tả hiện tại đã có nội dung. Bạn có muốn THAY THẾ toàn bộ bằng mẫu này không?\n(Bấm 'OK' để thay thế, bấm 'Cancel' để nối tiếp vào cuối)"
+        "Mo ta hien tai da co noi dung. Ban co muon thay the toan bo bang mau nay khong?\n(Bam OK de thay the, bam Cancel de noi tiep vao cuoi)"
       );
       if (confirmReplace) {
         setEditDesc(content);
@@ -149,9 +149,8 @@ export default function EditProductModal({
   };
 
   const numPrice = parseInt(String(editPrice).replace(/\D/g, ""), 10) || 0;
-  const priceDisplay = numPrice.toLocaleString("vi-VN") + " đ";
+  const priceDisplay = numPrice.toLocaleString("vi-VN") + " d";
 
-  // Parse inline Telegram tags: <b>, <code>, <i>
   const parseInlineTags = (str: string) => {
     const parts = [];
     let remaining = str;
@@ -206,7 +205,7 @@ export default function EditProductModal({
     if (!raw.trim()) {
       return (
         <div className="py-6 text-center text-slate-500 italic text-xs">
-          Chưa có nội dung mô tả... Bạn hãy chuyển sang tab Soạn thảo để nhập nội dung.
+          Chua co noi dung mo ta. Ban hay chuyen sang tab Soan thao de nhap noi dung.
         </div>
       );
     }
@@ -219,16 +218,16 @@ export default function EditProductModal({
             return <div key={idx} className="h-1.5" />;
           }
 
-          const isStep = line.trim().startsWith("👉") || /^\d+\./.test(line.trim());
+          const isStep = /^(\[Buoc|\d+\.|Buoc)/i.test(line.trim());
           const isBullet = line.trim().startsWith("- ") || line.trim().startsWith("• ");
-          const isWarning = line.trim().startsWith("⚠️") || line.trim().startsWith("*");
+          const isWarning = /^(Luu y|\*)/i.test(line.trim());
 
           const formattedParts = parseInlineTags(line);
 
           if (isStep) {
             return (
               <div key={idx} className="flex items-start gap-1.5 bg-emerald-950/40 border border-emerald-500/25 rounded-xl px-2.5 py-1 text-emerald-200">
-                <span className="font-semibold text-emerald-400">👉</span>
+                <span className="font-semibold text-emerald-400">[&gt;]</span>
                 <div className="flex-1 text-slate-100 text-xs">{formattedParts}</div>
               </div>
             );
@@ -237,7 +236,7 @@ export default function EditProductModal({
           if (isWarning) {
             return (
               <div key={idx} className="flex items-start gap-1.5 bg-amber-950/40 border border-amber-500/25 rounded-xl px-2.5 py-1 text-amber-200 text-xs">
-                <span className="text-amber-400 font-bold">⚠️</span>
+                <span className="text-amber-400 font-bold">[!]</span>
                 <div className="flex-1">{formattedParts}</div>
               </div>
             );
@@ -246,7 +245,7 @@ export default function EditProductModal({
           if (isBullet) {
             return (
               <div key={idx} className="flex items-start gap-1.5 pl-1.5 text-slate-200 text-xs">
-                <span className="text-emerald-400 font-bold">•</span>
+                <span className="text-emerald-400 font-bold">-</span>
                 <div className="flex-1">{formattedParts}</div>
               </div>
             );
@@ -273,7 +272,7 @@ export default function EditProductModal({
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-extrabold text-slate-900 flex items-center gap-2">
-                <span>Chỉnh sửa sản phẩm & Giá bán</span>
+                <span>Chinh sua san pham &amp; Gia ban</span>
                 <span className="text-xs font-mono font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
                   ID: #{editingProduct.id}
                 </span>
@@ -292,15 +291,15 @@ export default function EditProductModal({
         <form onSubmit={onUpdate} className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-5 sm:p-6 custom-scrollbar">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* CỘT 1 (BÊN TRÁI - 6 PHẦN): THÔNG TIN CƠ BẢN & GIÁ */}
+              {/* COT 1 (BEN TRAI - 6 PHAN): THONG TIN CO BAN & GIA */}
               <div className="lg:col-span-6 space-y-3.5 border-b lg:border-b-0 lg:border-r border-slate-200/90 lg:pr-6 pb-6 lg:pb-0">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  <span>⚙️ Cấu hình thông tin & Giá</span>
+                  <span>Cau hinh thong tin &amp; Gia ban</span>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">
-                    Tên sản phẩm *
+                    Ten san pham *
                   </label>
                   <input
                     type="text"
@@ -314,7 +313,7 @@ export default function EditProductModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Giá bán mới (VNĐ) *
+                      Gia ban moi (VND) *
                     </label>
                     <input
                       type="number"
@@ -325,14 +324,14 @@ export default function EditProductModal({
                     />
                     {editingProduct.price !== parseInt(editPrice || "0", 10) && (
                       <div className="text-[11px] text-slate-600 mt-1 font-medium">
-                        Giá cũ: <s className="text-rose-500">{editingProduct.price.toLocaleString("vi-VN")} đ</s>
+                        Gia cu: <s className="text-rose-500">{editingProduct.price.toLocaleString("vi-VN")} d</s>
                       </div>
                     )}
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Danh mục
+                      Danh muc
                     </label>
                     <input
                       type="text"
@@ -376,52 +375,52 @@ export default function EditProductModal({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">
-                    Lý do thay đổi giá / Ghi chú (Hiển thị dạng trích dẫn ghi chú trên Bot)
+                    Ly do thay doi gia / Ghi chu tren Bot
                   </label>
                   <input
                     type="text"
                     value={editPriceReason}
                     onChange={(e) => setEditPriceReason(e.target.value)}
-                    placeholder="VD: Đợt hàng mới, Khuyến mãi tri ân, Nâng cấp gói..."
+                    placeholder="VD: Dot hang moi, Tri an khach hang, Nang cap goi..."
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white"
                   />
                   <p className="text-[11px] text-slate-600 mt-1">
-                    Ghi chú này hiển thị dạng blockquote khi khách xem sản phẩm và trong tin broadcast bắn giá mới.
+                    Ghi chu nay se duoc hien thi dang trích dan khi khach xem san pham tren Bot.
                   </p>
                 </div>
 
                 <ProductImageField id="edit-product-image" value={editProductImage} onChange={setEditProductImage} />
 
-                {/* Nguồn cấp hàng tự động API NCC */}
+                {/* Nguon cap hang tu dong API NCC */}
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2.5">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
                     <Server className="h-4 w-4 text-[#0e704b]" />
-                    <span>Nguồn Cấp Hàng Tự Động (RoboticVN API)</span>
+                    <span>Nguon Cap Hang Tu Dong (RoboticVN API)</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
-                        Chế độ cấp hàng
+                        Che do cap hang
                       </label>
                       <select
                         value={editFulfillmentType}
                         onChange={(e) => setEditFulfillmentType(e.target.value)}
                         className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600 font-medium"
                       >
-                        <option value="HYBRID">Hybrid (Kho ưu tiên, hết tự mua API)</option>
-                        <option value="MANUAL">Chỉ bán kho thủ công (Manual)</option>
-                        <option value="API">Chỉ mua tự động qua API (API Only)</option>
+                        <option value="HYBRID">Hybrid (Kho uu tien, het tu mua API)</option>
+                        <option value="MANUAL">Chi ban kho thu cong (Manual)</option>
+                        <option value="API">Chi mua tu dong qua API (API Only)</option>
                       </select>
                     </div>
 
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
-                        Mã gói NCC (API Variant ID)
+                        Ma goi NCC (API Variant ID)
                       </label>
                       <input
                         type="text"
-                        placeholder="Mã variant bên NCC"
+                        placeholder="Ma variant ben NCC"
                         value={editSupplierVariantId}
                         onChange={(e) => setEditSupplierVariantId(e.target.value)}
                         className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-emerald-600 font-mono"
@@ -442,14 +441,14 @@ export default function EditProductModal({
                     htmlFor="editNotify"
                     className="text-xs text-slate-700 cursor-pointer font-medium select-none"
                   >
-                    Bắn thông báo điều chỉnh giá tới <b>{subscriberCount}</b> khách hàng qua Bot
+                    Ban thong bao dieu chinh gia toi <b>{subscriberCount}</b> khach hang qua Bot
                   </label>
                 </div>
               </div>
 
-              {/* CỘT 2 (BÊN PHẢI - 6 PHẦN): MÔ TẢ CHI TIẾT & LIVE PREVIEW BOT */}
+              {/* COT 2 (BEN PHAI - 6 PHAN): MO TA CHI TIET & PREVIEW BOT */}
               <div className="lg:col-span-6 flex flex-col space-y-3">
-                {/* Header Cột Phải: Switcher Tab Soạn Thảo vs Xem Trước */}
+                {/* Header Cot Phai: Switcher Tab Soan Thao vs Xem Truoc */}
                 <div className="flex items-center justify-between pb-1">
                   <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
                     <button
@@ -462,7 +461,7 @@ export default function EditProductModal({
                       }`}
                     >
                       <Edit3 className="h-3.5 w-3.5 text-[#0e704b]" />
-                      <span>Soạn thảo mô tả</span>
+                      <span>Soan thao mo ta</span>
                     </button>
                     <button
                       type="button"
@@ -474,26 +473,26 @@ export default function EditProductModal({
                       }`}
                     >
                       <Smartphone className="h-3.5 w-3.5 text-emerald-400" />
-                      <span>Xem trước Bot Telegram</span>
+                      <span>Xem truoc Bot Telegram</span>
                     </button>
                   </div>
 
                   <span className="text-[11px] font-semibold text-slate-600 hidden sm:inline">
-                    {editDesc.length} ký tự
+                    {editDesc.length} ky tu
                   </span>
                 </div>
 
                 {rightTab === "edit" ? (
-                  /* GIAO DIỆN SOẠN THẢO */
+                  /* GIAO DIEN SOAN THAO */
                   <div className="space-y-3">
                     {/* Quick template chips */}
                     <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
                           <FileText className="h-3 w-3 text-[#0e704b]" />
-                          <span>Mẫu mô tả có sẵn (1-chạm):</span>
+                          <span>Mau mo ta co san:</span>
                         </span>
-                        <span className="text-[10px] text-slate-600">Bấm để chèn nhanh</span>
+                        <span className="text-[10px] text-slate-600">Bam de chen nhanh</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {TEMPLATES.map((tpl) => (
@@ -515,7 +514,7 @@ export default function EditProductModal({
                         type="button"
                         onClick={() => insertFormatting("<b>", "</b>")}
                         className="p-1 hover:bg-white rounded-lg transition font-bold text-xs"
-                        title="In đậm (Bold)"
+                        title="In dam"
                       >
                         <Bold className="h-3.5 w-3.5" />
                       </button>
@@ -523,7 +522,7 @@ export default function EditProductModal({
                         type="button"
                         onClick={() => insertFormatting("<i>", "</i>")}
                         className="p-1 hover:bg-white rounded-lg transition"
-                        title="In nghiêng (Italic)"
+                        title="In nghieng"
                       >
                         <Italic className="h-3.5 w-3.5" />
                       </button>
@@ -531,7 +530,7 @@ export default function EditProductModal({
                         type="button"
                         onClick={() => insertFormatting("<code>", "</code>")}
                         className="p-1 hover:bg-white rounded-lg transition text-xs font-mono font-bold"
-                        title="Mã hoặc Key (Code)"
+                        title="Ma / Key"
                       >
                         <Code className="h-3.5 w-3.5" />
                       </button>
@@ -542,61 +541,61 @@ export default function EditProductModal({
                         className="px-2 py-0.5 hover:bg-white rounded-lg transition text-xs font-medium flex items-center gap-1"
                       >
                         <List className="h-3 w-3" />
-                        <span>• Gạch đầu dòng</span>
+                        <span>Gach dau dong</span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => insertFormatting("👉 Bước : ")}
+                        onClick={() => insertFormatting("[Buoc ]: ")}
                         className="px-2 py-0.5 hover:bg-white rounded-lg transition text-xs font-bold text-[#0e704b]"
                       >
-                        👉 Bước
+                        Buoc
                       </button>
                       <button
                         type="button"
-                        onClick={() => insertFormatting("⚠️ Lưu ý: ")}
-                        className="px-2 py-0.5 hover:bg-white rounded-lg transition text-xs font-bold text-amber-600"
+                        onClick={() => insertFormatting("Luu y: ")}
+                        className="px-2 py-0.5 hover:bg-white rounded-lg transition text-xs font-bold text-amber-700"
                       >
-                        ⚠️ Lưu ý
+                        Luu y
                       </button>
                       <button
                         type="button"
                         onClick={() => insertFormatting("<blockquote>", "</blockquote>")}
                         className="p-1 hover:bg-white rounded-lg transition"
-                        title="Trích dẫn (Quote)"
+                        title="Trich dan"
                       >
                         <Quote className="h-3.5 w-3.5" />
                       </button>
                     </div>
 
-                    {/* Textarea to rộng rãi */}
+                    {/* Textarea to rong rai */}
                     <div>
                       <textarea
                         ref={textareaRef}
                         rows={10}
                         value={editDesc}
                         onChange={(e) => setEditDesc(e.target.value)}
-                        placeholder="Nhập thông tin chi tiết, định dạng tài khoản, hướng dẫn sử dụng và lưu ý tại đây..."
+                        placeholder="Nhap thong tin chi tiet, dinh dang tai khoan, huong dan su dung va luu y tai day..."
                         className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs sm:text-sm font-mono leading-relaxed text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white custom-scrollbar shadow-inner"
                       />
                     </div>
 
-                    {/* Chính sách bảo hành */}
+                    {/* Chinh sach bao hanh */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                        <span>Chính sách bảo hành</span>
-                        <span className="text-[10px] text-slate-600 font-normal">Gửi kèm trong tin nhắn sau thanh toán</span>
+                        <span>Chinh sach bao hanh</span>
+                        <span className="text-[10px] text-slate-600 font-normal">Gui kem trong tin nhan sau thanh toan</span>
                       </label>
                       <textarea
                         rows={3}
                         value={editWarranty}
                         onChange={(e) => setEditWarranty(e.target.value)}
-                        placeholder={'⏱ BẢO HÀNH 1 GIỜ TỪ THANH TOÁN THÀNH CÔNG\n⏱ Hạn gửi hỗ trợ: trong 1 giờ kể từ lúc đơn được xác nhận.'}
+                        placeholder="BAO HANH 1 GIO TU THANH TOAN THANH CONG. Han gui ho tro: trong 1 gio ke tu luc don duoc xac nhan."
                         className="w-full rounded-xl border border-violet-200 bg-violet-50/50 p-2.5 text-xs text-slate-900 focus:outline-none focus:border-violet-400 focus:bg-white"
                       />
                     </div>
                   </div>
                 ) : (
-                  /* GIAO DIỆN XEM TRƯỚC TELEGRAM BOT (LIVE PREVIEW) */
+                  /* GIAO DIEN XEM TRUOC TELEGRAM BOT */
                   <div className="rounded-2xl bg-[#1e293b] border border-[#334155] p-4 text-slate-100 shadow-xl space-y-2.5 max-h-[500px] overflow-y-auto custom-scrollbar">
                     {/* Header bot */}
                     <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
@@ -608,36 +607,36 @@ export default function EditProductModal({
                           <div className="flex items-center gap-1">
                             <span className="font-bold text-xs text-white">RINQ SHOP</span>
                             <span className="h-3 w-3 bg-blue-500 text-white rounded-full flex items-center justify-center text-[8px] font-black">
-                              ✓
+                              v
                             </span>
                           </div>
-                          <span className="text-[10px] text-slate-400">bot tự động</span>
+                          <span className="text-[10px] text-slate-400">bot tu dong</span>
                         </div>
                       </div>
-                      <span className="text-[10px] text-emerald-400 font-mono">Xem trước thực tế</span>
+                      <span className="text-[10px] text-emerald-400 font-mono">Xem truoc</span>
                     </div>
 
                     {/* Body message */}
                     <div className="space-y-1.5 text-xs">
                       <p className="font-bold text-white text-sm">
-                        ❖ {(editName || "TÊN SẢN PHẨM").toUpperCase()}
+                        [RINQ] {(editName || "TEN SAN PHAM").toUpperCase()}
                       </p>
                       <p className="text-emerald-400 font-semibold">
-                        • <b>Đơn giá:</b> {priceDisplay} / sản phẩm
+                        - <b>Don gia:</b> {priceDisplay} / san pham
                       </p>
                       <p className="text-slate-300">
-                        • <b>Tình trạng:</b> 🟢 Sẵn hàng (Giao tức thì 24/7)
+                        - <b>Tinh trang:</b> San hang (Giao tu dong 24/7)
                       </p>
 
                       {editPriceReason ? (
                         <blockquote className="border-l-2 border-emerald-500 pl-2 text-slate-300 italic text-[11px] bg-slate-900/40 py-0.5 rounded-r">
-                          📝 <b>Ghi chú:</b> {editPriceReason}
+                          <b>Ghi chu:</b> {editPriceReason}
                         </blockquote>
                       ) : null}
 
                       <div className="pt-2 border-t border-slate-700/60">
                         <p className="font-bold text-slate-200 mb-1 flex items-center gap-1">
-                          <span>📝</span> <b>Thông tin & Mô tả chi tiết:</b>
+                          <b>Thong tin &amp; Mo ta chi tiet:</b>
                         </p>
                         <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800">
                           {renderTelegramDescription(editDesc)}
@@ -647,7 +646,7 @@ export default function EditProductModal({
                       {editWarranty ? (
                         <div className="pt-1.5">
                           <blockquote className="border-l-2 border-violet-400 pl-2.5 py-1 text-[11px] text-violet-200 bg-violet-950/30 rounded-r">
-                            🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>
+                            <b>CHINH SACH BAO HANH:</b>
                             <br />
                             {editWarranty}
                           </blockquote>
@@ -655,7 +654,7 @@ export default function EditProductModal({
                       ) : null}
 
                       <p className="text-[11px] text-slate-400 italic pt-1">
-                        Kính mời Quý khách lựa chọn nút bên dưới để tiến hành thanh toán:
+                        Kinh moi Quy khach lua chon nut ben duoi de tien hanh thanh toan:
                       </p>
                     </div>
 
@@ -663,10 +662,10 @@ export default function EditProductModal({
                     <div className="space-y-1 pt-1.5">
                       <div className="grid grid-cols-2 gap-1.5">
                         <div className="py-1.5 px-2 rounded-xl bg-slate-700/80 text-slate-200 text-[11px] font-semibold text-center border border-slate-600/40">
-                          💳 Mua ngay
+                          Mua ngay
                         </div>
                         <div className="py-1.5 px-2 rounded-xl bg-slate-700/80 text-slate-200 text-[11px] font-semibold text-center border border-slate-600/40">
-                          🏷 Dùng mã giảm giá
+                          Dung ma giam gia
                         </div>
                       </div>
                     </div>
@@ -679,7 +678,7 @@ export default function EditProductModal({
           {/* STICKY BOTTOM ACTIONS FOOTER */}
           <div className="border-t border-slate-100 px-5 sm:px-6 py-3 bg-slate-50/80 flex items-center justify-between">
             <span className="text-[11px] text-slate-600 font-medium hidden sm:inline">
-              ✨ Giao diện 2 cột Split-View giúp bạn vừa soạn thảo vừa xem trước mô tả dễ dàng
+              Giao dien 2 cot Split-View giup soan thao va xem truoc mo ta truc quan
             </span>
             <div className="flex items-center gap-2 ml-auto">
               <button
@@ -687,14 +686,14 @@ export default function EditProductModal({
                 onClick={onClose}
                 className="rounded-full border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
               >
-                Hủy
+                Huy
               </button>
               <button
                 type="submit"
                 disabled={isUpdating}
                 className="rounded-full bg-[#0e704b] hover:bg-[#0a5c3d] px-6 py-2 text-xs font-bold text-white transition shadow-sm disabled:opacity-50 active:scale-95 flex items-center gap-1.5"
               >
-                {isUpdating ? "Đang lưu..." : "Lưu & Áp dụng"}
+                {isUpdating ? "Dang luu..." : "Luu & Ap dung"}
               </button>
             </div>
           </div>
