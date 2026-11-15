@@ -251,10 +251,17 @@ function buildPaymentKeyboard(options: {
   return keyboard;
 }
 
-// Helper: Tính số lượng tồn kho khả dụng (bao gồm kết nối NCC API ẩn với khách & kiểm tra tồn kho NCC)
+// Helper: Tính số lượng tồn kho khả dụng (bao gồm số tồn ảo kích cầu, kết nối NCC API ẩn với khách & kiểm tra tồn kho NCC)
 export function getProductStockCount(p: any): number {
   if (!p) return 0;
   const manualCount = Array.isArray(p.stocks) ? p.stocks.length : (p.stockAvailable ?? 0);
+  const fakeCount = Number(p.fakeStock || 0);
+
+  // Nếu người bán cài đặt tồn kho hiển thị (fakeStock > 0)
+  if (fakeCount > 0) {
+    return manualCount > 0 ? (manualCount + fakeCount) : fakeCount;
+  }
+
   const supplierVariantId = p.supplierVariantId;
   const fulfillmentType = p.fulfillmentType || "HYBRID";
 

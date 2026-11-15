@@ -25,6 +25,8 @@ interface EditProductModalProps {
   setEditName: (val: string) => void;
   editPrice: string;
   setEditPrice: (val: string) => void;
+  editFakeStock: string;
+  setEditFakeStock: (val: string) => void;
   editDesc: string;
   setEditDesc: (val: string) => void;
   editWarranty: string;
@@ -91,6 +93,8 @@ export default function EditProductModal({
   setEditName,
   editPrice,
   setEditPrice,
+  editFakeStock,
+  setEditFakeStock,
   editDesc,
   setEditDesc,
   editWarranty,
@@ -459,6 +463,23 @@ export default function EditProductModal({
                         className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-emerald-600 font-mono"
                       />
                     </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200/80">
+                    <label className="block text-[11px] font-semibold text-amber-800 mb-0.5">
+                      Ton kho ao hien thi (Display Stock)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0 = Dung ton thuc / NCC"
+                      value={editFakeStock}
+                      onChange={(e) => setEditFakeStock(e.target.value)}
+                      className="w-full rounded-xl border border-amber-200 bg-white px-2.5 py-1.5 text-xs text-amber-900 font-bold focus:outline-none focus:border-amber-500"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Neu &gt; 0, Bot luon cho phep khach mua so luong nay. Sau khi khach mua, so luong ao tu tru dan va he thong bao Admin de bo sung hang.
+                    </p>
                   </div>
                 </div>
 

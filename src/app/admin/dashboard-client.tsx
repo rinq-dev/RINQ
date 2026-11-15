@@ -147,6 +147,7 @@ export default function AdminPage() {
   // Form tạo sản phẩm mới
   const [newProductName, setNewProductName] = useState("");
   const [newProductPrice, setNewProductPrice] = useState("");
+  const [newProductFakeStock, setNewProductFakeStock] = useState("0");
   const [newProductCategory, setNewProductCategory] = useState("AI");
   const [newProductDesc, setNewProductDesc] = useState("");
   const [newProductWarranty, setNewProductWarranty] = useState("");
@@ -181,6 +182,7 @@ export default function AdminPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState("");
+  const [editFakeStock, setEditFakeStock] = useState("0");
   const [editDesc, setEditDesc] = useState("");
   const [editWarranty, setEditWarranty] = useState("");
   const [editCategory, setEditCategory] = useState("");
@@ -521,6 +523,7 @@ export default function AdminPage() {
           imageUrl: newProductImage.trim() || null,
           supplierVariantId: newSupplierVariantId.trim() || null,
           fulfillmentType: newFulfillmentType,
+          fakeStock: parseInt(newProductFakeStock, 10) || 0,
         }),
       });
 
@@ -529,6 +532,7 @@ export default function AdminPage() {
         showToast("Thêm sản phẩm thành công!");
         setNewProductName("");
         setNewProductPrice("");
+        setNewProductFakeStock("0");
         setNewProductDesc("");
         setNewProductWarranty("");
         setNewProductImage("");
@@ -661,6 +665,7 @@ export default function AdminPage() {
     setEditingProduct(p);
     setEditName(p.name);
     setEditPrice(String(p.price));
+    setEditFakeStock(String(p.fakeStock || 0));
     setEditDesc(p.description || "");
     setEditWarranty(p.warranty || "");
     setEditCategory(p.category || "");
@@ -692,6 +697,7 @@ export default function AdminPage() {
           id: editingProduct.id,
           name: editName.trim(),
           price: parseInt(editPrice, 10),
+          fakeStock: parseInt(editFakeStock, 10) || 0,
           category: editCategory.trim(),
           description: editDesc.trim(),
           warranty: editWarranty.trim() || null,
@@ -1684,6 +1690,8 @@ export default function AdminPage() {
                   setNewProductName={setNewProductName}
                   newProductPrice={newProductPrice}
                   setNewProductPrice={setNewProductPrice}
+                  newProductFakeStock={newProductFakeStock}
+                  setNewProductFakeStock={setNewProductFakeStock}
                   newProductCategory={newProductCategory}
                   setNewProductCategory={setNewProductCategory}
                   newProductImage={newProductImage}
@@ -1825,6 +1833,8 @@ export default function AdminPage() {
         setEditName={setEditName}
         editPrice={editPrice}
         setEditPrice={setEditPrice}
+        editFakeStock={editFakeStock}
+        setEditFakeStock={setEditFakeStock}
         editDesc={editDesc}
         setEditDesc={setEditDesc}
         editWarranty={editWarranty}

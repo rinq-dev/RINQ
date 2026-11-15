@@ -53,6 +53,8 @@ interface ProductsTabProps {
   setNewProductName: (val: string) => void;
   newProductPrice: string;
   setNewProductPrice: (val: string) => void;
+  newProductFakeStock: string;
+  setNewProductFakeStock: (val: string) => void;
   newProductCategory: string;
   setNewProductCategory: (val: string) => void;
   newProductImage: string;
@@ -100,6 +102,8 @@ export default function ProductsTab({
   setNewProductName,
   newProductPrice,
   setNewProductPrice,
+  newProductFakeStock,
+  setNewProductFakeStock,
   newProductCategory,
   setNewProductCategory,
   newProductImage,
@@ -521,7 +525,7 @@ export default function ProductsTab({
 
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tồn kho</p>
-                      <div className="mt-0.5 flex justify-center">
+                      <div className="mt-0.5 flex flex-col items-center gap-0.5">
                         {p.stockAvailable > 0 ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-0.5 text-[11px] font-bold text-[#0e704b]">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
@@ -531,6 +535,11 @@ export default function ProductsTab({
                           <span className="inline-flex items-center gap-1 rounded-full bg-rose-100/80 px-2 py-0.5 text-[11px] font-bold text-rose-600">
                             <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
                             Hết hàng
+                          </span>
+                        )}
+                        {(p.fakeStock || 0) > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                            Tồn ảo: {p.fakeStock}
                           </span>
                         )}
                       </div>
@@ -688,17 +697,24 @@ export default function ProductsTab({
                       {p.price.toLocaleString("vi-VN")} đ
                     </td>
                     <td className="py-3 px-3 align-middle whitespace-nowrap">
-                      {p.stockAvailable > 0 ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-[#0e704b] border border-emerald-100">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                          Còn {p.stockAvailable}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-bold text-rose-600 border border-rose-100">
-                          <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
-                          Hết
-                        </span>
-                      )}
+                      <div className="flex flex-col items-start gap-1">
+                        {p.stockAvailable > 0 ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-[#0e704b] border border-emerald-100">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            Còn {p.stockAvailable}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-bold text-rose-600 border border-rose-100">
+                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                            Hết
+                          </span>
+                        )}
+                        {(p.fakeStock || 0) > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
+                            Tồn ảo: {p.fakeStock}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-3 align-middle font-bold text-slate-700 whitespace-nowrap">
                       {p.stockSold} cái
@@ -831,8 +847,8 @@ export default function ProductsTab({
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Tồn kho</p>
-                  <p className={`mt-0.5 text-xs font-extrabold ${p.stockAvailable > 0 ? "text-emerald-700" : "text-rose-600"}`}>
-                    {p.stockAvailable > 0 ? `Còn ${p.stockAvailable} cái` : "Hết hàng"}
+                  <p className={`mt-0.5 text-xs font-extrabold ${p.stockAvailable > 0 ? "text-emerald-700" : (p.fakeStock || 0) > 0 ? "text-amber-700" : "text-rose-600"}`}>
+                    {p.stockAvailable > 0 ? `Còn ${p.stockAvailable} cái` : (p.fakeStock || 0) > 0 ? `Tồn ảo: ${p.fakeStock}` : "Hết hàng"}
                   </p>
                 </div>
               </div>
@@ -1081,7 +1097,14 @@ export default function ProductsTab({
               </div>
               <div className="rounded-xl bg-slate-50 p-3 border border-slate-100">
                 <p className="text-[10px] font-bold uppercase text-slate-500">Tồn kho</p>
-                <p className="mt-1 text-lg font-black text-slate-900">{selectedProduct.stockAvailable} cái</p>
+                <p className="mt-1 text-lg font-black text-slate-900">
+                  {selectedProduct.stockAvailable} cái
+                  {(selectedProduct.fakeStock || 0) > 0 && (
+                    <span className="ml-2 text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                      Tồn ảo: {selectedProduct.fakeStock}
+                    </span>
+                  )}
+                </p>
               </div>
             </div>
             <dl className="mt-5 space-y-3 text-sm">
@@ -1393,6 +1416,23 @@ export default function ProductsTab({
                     onChange={(e) => setNewSupplierVariantId(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-emerald-600 font-mono"
                   />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-semibold text-amber-800 mb-1">
+                    Tồn kho ảo hiển thị (Display Stock)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0 = Dùng tồn thực / NCC"
+                    value={newProductFakeStock}
+                    onChange={(e) => setNewProductFakeStock(e.target.value)}
+                    className="w-full rounded-xl border border-amber-200 bg-amber-50/40 px-2.5 py-1.5 text-xs text-amber-900 font-bold focus:outline-none focus:border-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Khi &gt; 0, Bot luôn cho phép khách mua số lượng này. Sau khi mua hệ thống sẽ tự trừ dần và báo Admin để nạp thêm.
+                  </p>
                 </div>
               </div>
             </details>

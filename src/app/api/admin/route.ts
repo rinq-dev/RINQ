@@ -159,6 +159,7 @@ export async function GET(req: NextRequest) {
         supplierVariantId: p.supplierVariantId || null,
         fulfillmentType: p.fulfillmentType || "HYBRID",
         retailMarginPercent: p.retailMarginPercent ?? 15,
+        fakeStock: (p as any).fakeStock ?? 0,
         isActive: p.isActive,
         createdAt: p.createdAt,
         stockAvailable: unsold,
@@ -393,6 +394,7 @@ async function executeAdminAction(body: any) {
           supplierVariantId,
           fulfillmentType,
           retailMarginPercent,
+          fakeStock,
         } = body;
         if (!name || price === undefined) {
           return NextResponse.json(
@@ -419,6 +421,7 @@ async function executeAdminAction(body: any) {
             supplierVariantId: sVarId,
             fulfillmentType: fType,
             retailMarginPercent: Number.isFinite(Number(retailMarginPercent)) ? Math.max(0, Math.min(100, Math.round(Number(retailMarginPercent)))) : 15,
+            fakeStock: Number.isFinite(Number(fakeStock)) ? Math.max(0, parseInt(String(fakeStock), 10)) : 0,
             imageUrl: img,
             isActive: true,
           },
@@ -444,6 +447,7 @@ async function executeAdminAction(body: any) {
           supplierVariantId,
           fulfillmentType,
           retailMarginPercent,
+          fakeStock,
         } = body;
         if (id === undefined) {
           return NextResponse.json({ error: "Thiếu product id" }, { status: 400 });
@@ -507,6 +511,7 @@ async function executeAdminAction(body: any) {
             supplierVariantId: sVarId,
             fulfillmentType: fType,
             ...(retailMarginPercent !== undefined ? { retailMarginPercent: Math.max(0, Math.min(100, Math.round(Number(retailMarginPercent)))) } : {}),
+            ...(fakeStock !== undefined ? { fakeStock: Number.isFinite(Number(fakeStock)) ? Math.max(0, parseInt(String(fakeStock), 10)) : 0 } : {}),
             imageUrl: img,
           },
         });

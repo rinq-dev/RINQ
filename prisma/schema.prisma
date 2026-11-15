@@ -21,8 +21,9 @@ model Product {
   fulfillmentType   String?     @default("HYBRID")
   retailMarginPercent Int       @default(15)
   lastSupplierPrice   Int?
-  autoPriceSync       Boolean   @default(true)
-  isActive          Boolean     @default(true)
+  autoPriceSync       Boolean     @default(true)
+  fakeStock           Int         @default(0)
+  isActive            Boolean     @default(true)
   stocks            StockItem[]
   orders            Order[]
   supplierPurchases SupplierPurchase[]

@@ -443,6 +443,14 @@ export async function processApi5sTransaction(tx: Api5sTransaction): Promise<{
       }).catch(() => {});
     }
 
+    // Trừ tồn kho hiển thị ảo (nếu có)
+    if (order.product?.fakeStock && order.product.fakeStock > 0) {
+      await prisma.product.update({
+        where: { id: order.productId },
+        data: { fakeStock: Math.max(0, order.product.fakeStock - orderQty) },
+      }).catch(() => {});
+    }
+
     await prisma.order.update({
       where: { id: order.id },
       data: {
@@ -489,6 +497,13 @@ export async function processApi5sTransaction(tx: Api5sTransaction): Promise<{
         paidAt: new Date(),
       },
     });
+
+    if (order.product?.fakeStock && order.product.fakeStock > 0) {
+      await dbTx.product.update({
+        where: { id: order.productId },
+        data: { fakeStock: Math.max(0, order.product.fakeStock - orderQty) },
+      }).catch(() => {});
+    }
 
     return {
       order: updatedOrder,

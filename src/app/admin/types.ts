@@ -10,6 +10,7 @@ export interface Product {
   supplierVariantId?: string | null;
   fulfillmentType?: string | null;
   retailMarginPercent?: number;
+  fakeStock?: number;
   isActive: boolean;
   createdAt: string;
   stockAvailable: number;
