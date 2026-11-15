@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Order, Stats, FlashSaleConfig } from "../types";
 import FlashSaleCard from "./FlashSaleCard";
+import SupplierAlertBanner from "./SupplierAlertBanner";
 
 interface OverviewTabProps {
   stats: Stats;
@@ -61,6 +62,9 @@ export default function OverviewTab({
 }: OverviewTabProps) {
   return (
     <div className="space-y-5 sm:space-y-6">
+      {/* SUPPLIER ALERTS & PRICE CHANGE BANNER */}
+      <SupplierAlertBanner />
+
       {/* FLASH SALE MANAGEMENT WIDGET */}
       <FlashSaleCard initialFlashSale={flashSale} onRefreshData={onRefreshData} />
 

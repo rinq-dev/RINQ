@@ -21,6 +21,44 @@ export interface Api5sResponse {
 
 let isProcessingLock = false;
 
+// Gợi ý sản phẩm mua kèm thông minh sau khi hoàn tất đơn hàng
+async function getPostPurchaseCrossSell(productName: string, categoryName?: string): Promise<{ id: number; name: string; reason: string } | null> {
+  const nameLower = (productName || "").toLowerCase();
+  const catLower = (categoryName || "").toLowerCase();
+
+  try {
+    if (
+      catLower.includes("ai") ||
+      nameLower.includes("claude") ||
+      nameLower.includes("codex") ||
+      nameLower.includes("chatgpt") ||
+      nameLower.includes("openai") ||
+      nameLower.includes("deepseek") ||
+      nameLower.includes("gemini")
+    ) {
+      const cross = await prisma.product.findFirst({
+        where: {
+          isActive: true,
+          OR: [
+            { category: { contains: "mail", mode: "insensitive" } },
+            { name: { contains: "hotmail", mode: "insensitive" } },
+            { name: { contains: "outlook", mode: "insensitive" } },
+          ],
+        },
+        select: { id: true, name: true },
+      });
+      if (cross) {
+        return {
+          id: cross.id,
+          name: cross.name,
+          reason: "Khách hàng sử dụng Claude và AI thường trang bị thêm Hotmail / Outlook OAuth để nhận mã OTP và sao lưu an toàn.",
+        };
+      }
+    }
+  } catch {}
+  return null;
+}
+
 // Tải lịch sử giao dịch ACB từ api5s.com
 export async function fetchApi5sTransactions(customToken?: string): Promise<Api5sTransaction[]> {
   const token =
@@ -500,6 +538,11 @@ export async function processApi5sTransaction(tx: Api5sTransaction): Promise<{
       ? `<blockquote>🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
       : "";
 
+    const crossSell = await getPostPurchaseCrossSell(order.product.name, order.product.category);
+    const crossSellNotice = crossSell
+      ? `<blockquote>💡 <b>GỢI Ý HỮU ÍCH:</b>\n${crossSell.reason}\n• Tham khảo ngay: <b>${crossSell.name}</b></blockquote>\n\n`
+      : "";
+
     const message =
       `✦ <b>XÁC NHẬN GIAO DỊCH THÀNH CÔNG</b> ✦\n\n` +
       `Kính gửi Quý khách,\n` +
@@ -511,11 +554,12 @@ export async function processApi5sTransaction(tx: Api5sTransaction): Promise<{
       `🕒 <b>Thời gian ghi nhận:</b> ${new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}\n\n` +
       keysText +
       warrantyNotice +
+      crossSellNotice +
       `<blockquote>💡 <i>Ghi chú: Quý khách chạm trực tiếp vào dòng mã trên để tự động sao chép toàn bộ.</i></blockquote>\n\n` +
       `RINQ SHOP xin chân thành cảm ơn Quý khách đã tin tưởng và đồng hành cùng chúng tôi.\n` +
       `Nếu cần hỗ trợ bảo hành hoặc tư vấn, Quý khách vui lòng liên hệ Admin <b>@rinq_hotro</b>. Trân trọng!`;
 
-    const deliveryKeyboard = {
+    const deliveryKeyboard: any = {
       inline_keyboard: [
         [
           { text: "📥 Tải file đơn (.txt)", callback_data: `dl_order:${result.order.id}` },
@@ -527,6 +571,12 @@ export async function processApi5sTransaction(tx: Api5sTransaction): Promise<{
         ],
       ],
     };
+
+    if (crossSell) {
+      deliveryKeyboard.inline_keyboard.unshift([
+        { text: `✨ Xem mua kèm: ${crossSell.name.slice(0, 26)}`, callback_data: `prod:${crossSell.id}` },
+      ]);
+    }
 
     fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",

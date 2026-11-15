@@ -27,6 +27,7 @@ import { Product } from "../types";
 import ProductImageField from "./ProductImageField";
 import ScoopyImportPanel from "./ScoopyImportPanel";
 import RoboticImportPanel from "./RoboticImportPanel";
+import SupplierAlertBanner from "./SupplierAlertBanner";
 
 interface ProductsTabProps {
   products: Product[];
@@ -213,6 +214,11 @@ export default function ProductsTab({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+      {/* Supplier & Price Change Alerts Banner */}
+      <div className="lg:col-span-12">
+        <SupplierAlertBanner onSyncPriceRequested={handleSyncSupplier} />
+      </div>
+
       {/* Top Supplier Workspace Panel */}
       <div className="lg:col-span-12 flex flex-col gap-3 border-2 border-black bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

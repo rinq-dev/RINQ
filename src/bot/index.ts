@@ -78,8 +78,8 @@ async function getDynamicBankInfo() {
 
 // 1. Menu ReplyKeyboard cố định dưới đáy
 const mainMenuKeyboard = new Keyboard()
-  .text("🗂 Xem sản phẩm").text("📦 Đơn hàng của tôi").row()
-  .text("💳 Ví & Số dư").text("🤝 Giới thiệu").row()
+  .text("🗂 Xem sản phẩm").text("🛒 Giỏ hàng").row()
+  .text("📦 Đơn hàng của tôi").text("💳 Ví & Số dư").row()
   .text("🎁 Giveaway").text("💬 Liên hệ hỗ trợ")
   .resized();
 
@@ -692,6 +692,131 @@ export async function resolveProductFromStartParam(param: string): Promise<any |
   return null;
 }
 
+// ==========================================
+// QUẢN LÝ GIỎ HÀNG (MULTI-ITEM CART)
+// ==========================================
+export interface CartItem {
+  productId: number;
+  productName: string;
+  price: number;
+  quantity: number;
+  category?: string;
+}
+
+const userCarts = new Map<string, CartItem[]>();
+
+export function getUserCart(telegramId: string): CartItem[] {
+  return userCarts.get(telegramId) || [];
+}
+
+export function addToUserCart(telegramId: string, item: CartItem): CartItem[] {
+  const cart = getUserCart(telegramId);
+  const found = cart.find((i) => i.productId === item.productId);
+  if (found) {
+    found.quantity += item.quantity;
+  } else {
+    cart.push({ ...item });
+  }
+  userCarts.set(telegramId, cart);
+  return cart;
+}
+
+export function removeFromUserCart(telegramId: string, productId: number): CartItem[] {
+  const cart = getUserCart(telegramId).filter((i) => i.productId !== productId);
+  userCarts.set(telegramId, cart);
+  return cart;
+}
+
+export function clearUserCart(telegramId: string): void {
+  userCarts.delete(telegramId);
+}
+
+// Gợi ý sản phẩm mua kèm thông minh (Smart Cross-sell)
+export async function findSmartCrossSell(product: any): Promise<{ item: any; reason: string } | null> {
+  if (!product) return null;
+  const nameLower = (product.name || "").toLowerCase();
+  const catLower = (product.category || "").toLowerCase();
+
+  try {
+    // Nhóm 1: AI (Claude, Codex, OpenAI, DeepSeek, ChatGPT, Gemini, Grok, Kimi) -> Gợi ý Mail OAuth nhận OTP
+    if (
+      catLower.includes("ai") ||
+      nameLower.includes("claude") ||
+      nameLower.includes("codex") ||
+      nameLower.includes("chatgpt") ||
+      nameLower.includes("openai") ||
+      nameLower.includes("deepseek") ||
+      nameLower.includes("gemini") ||
+      nameLower.includes("kimi") ||
+      nameLower.includes("grok")
+    ) {
+      const cross = await prisma.product.findFirst({
+        where: {
+          isActive: true,
+          id: { not: product.id },
+          OR: [
+            { category: { contains: "mail", mode: "insensitive" } },
+            { name: { contains: "hotmail", mode: "insensitive" } },
+            { name: { contains: "outlook", mode: "insensitive" } },
+          ],
+        },
+        select: { id: true, name: true, price: true },
+      });
+      if (cross) {
+        return {
+          item: cross,
+          reason: "Khách hàng mua tài nguyên AI thường mua kèm Hotmail / Outlook OAuth để nhận mã OTP và sao lưu an toàn.",
+        };
+      }
+    }
+
+    // Nhóm 2: Mail & OTP -> Gợi ý tài khoản AI
+    if (catLower.includes("mail") || nameLower.includes("hotmail") || nameLower.includes("outlook")) {
+      const cross = await prisma.product.findFirst({
+        where: {
+          isActive: true,
+          id: { not: product.id },
+          OR: [
+            { name: { contains: "claude", mode: "insensitive" } },
+            { name: { contains: "chatgpt", mode: "insensitive" } },
+            { name: { contains: "deepseek", mode: "insensitive" } },
+          ],
+        },
+        select: { id: true, name: true, price: true },
+      });
+      if (cross) {
+        return {
+          item: cross,
+          reason: "Khách hàng mua Mail thường mua kèm API Claude hoặc ChatGPT để khởi tạo nhanh dự án.",
+        };
+      }
+    }
+
+    // Nhóm 3: Đồ họa / Video -> Gợi ý ElevenLabs / Qwen
+    if (nameLower.includes("capcut") || nameLower.includes("canva") || nameLower.includes("adobe")) {
+      const cross = await prisma.product.findFirst({
+        where: {
+          isActive: true,
+          id: { not: product.id },
+          OR: [
+            { name: { contains: "elevenlabs", mode: "insensitive" } },
+            { name: { contains: "qwen", mode: "insensitive" } },
+          ],
+        },
+        select: { id: true, name: true, price: true },
+      });
+      if (cross) {
+        return {
+          item: cross,
+          reason: "Khách hàng dựng video thường mua kèm tài khoản giọng đọc AI ElevenLabs để lồng tiếng.",
+        };
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
 // Helper: Hiển thị giao diện chi tiết sản phẩm kèm nút mua và báo hàng
 export async function sendProductDetail(
   ctx: any,
@@ -745,6 +870,12 @@ export async function sendProductDetail(
 
   const greetingPrefix = options?.welcomeGreeting ? `${options.welcomeGreeting}\n\n` : "";
 
+  // Gợi ý mua kèm thông minh (Smart Cross-sell)
+  const crossSell = await findSmartCrossSell(product);
+  const crossSellText = crossSell
+    ? `<blockquote>💡 <b>GỢI Ý MUA KÈM:</b>\n${crossSell.reason}\n• Tham khảo: <b>${crossSell.item.name}</b> (${formatVND(crossSell.item.price)})</blockquote>\n\n`
+    : "";
+
   const text =
     greetingPrefix +
     `[ <b>${product.name.toUpperCase()}</b> ]\n` +
@@ -754,13 +885,15 @@ export async function sendProductDetail(
     priceNoteText +
     `<b>Thông tin & Mô tả chi tiết:</b>\n${desc}\n\n` +
     warrantyText +
+    crossSellText +
     (stockCount > 0
       ? `Kính mời Quý khách lựa chọn nút bên dưới để tiến hành thanh toán:`
       : `<blockquote>Thông báo: Sản phẩm hiện đang tạm hết hàng. Quý khách vui lòng bấm nút nhận báo hàng để được thông báo ngay khi có hàng.</blockquote>`);
 
   const keyboard = new InlineKeyboard();
   if (stockCount > 0) {
-    keyboard.text("Mua ngay", `buy:${product.id}`).row();
+    keyboard.text("Mua ngay", `buy:${product.id}`);
+    keyboard.text("🛒 Thêm vào giỏ", `cart_add:${product.id}`).row();
     keyboard.text("Dùng mã giảm giá", `coupon_info:${product.id}`).row();
   } else {
     const isSubbed = await prisma.restockSubscription.findUnique({
@@ -778,6 +911,19 @@ export async function sendProductDetail(
       keyboard.text("Báo cho tôi khi có hàng", `restock_sub:${product.id}`).row();
     }
   }
+
+  // Nút xem sản phẩm mua kèm nếu có
+  if (crossSell) {
+    keyboard.text(`✨ Xem mua kèm: ${crossSell.item.name.slice(0, 24)}`, `prod:${crossSell.item.id}`).row();
+  }
+
+  // Nút xem giỏ hàng nếu khách đã có sản phẩm trong giỏ
+  const userCart = getUserCart(telegramId);
+  if (userCart.length > 0) {
+    const totalItems = userCart.reduce((sum, i) => sum + i.quantity, 0);
+    keyboard.text(`🛒 Xem giỏ hàng (${totalItems} món)`, "cart_view").row();
+  }
+
   if (product.category && product.category.trim()) {
     keyboard.text(`Quay lại danh mục ${product.category}`, `cat:${product.category}`).row();
   }
@@ -987,6 +1133,271 @@ bot.command(["support", "admin"], handleShowSupport);
 
 bot.hears(["🤝 Giới thiệu", "Giới thiệu", "🤝 Kiếm tiền", "Kiếm tiền"], handleShowAffiliate);
 bot.command(["affiliate", "gioithieu", "ref"], handleShowAffiliate);
+
+// ==========================================
+// BỘ ĐIỀU KHIỂN GIỎ HÀNG (MULTI-ITEM CART)
+// ==========================================
+async function renderCart(ctx: any, deleteOld = false) {
+  const telegramId = String(ctx.from?.id);
+  const cart = getUserCart(telegramId);
+
+  if (deleteOld) {
+    await ctx.deleteMessage().catch(() => {});
+  }
+
+  if (cart.length === 0) {
+    const emptyKeyboard = new InlineKeyboard().text("Xem danh mục sản phẩm", "menu_products");
+
+    await ctx.reply(
+      "🛒 <b>GIỎ HÀNG CỦA QUÝ KHÁCH ĐANG TRỐNG</b>\n\n" +
+      "Quý khách chưa có sản phẩm nào trong giỏ hàng.\n" +
+      "Hãy xem danh mục và bấm nút <b>[🛒 Thêm vào giỏ]</b> để gom nhiều tài nguyên thanh toán cùng một lần!",
+      { parse_mode: "HTML", reply_markup: emptyKeyboard }
+    );
+    return;
+  }
+
+  let totalAmount = 0;
+  let itemsText = "";
+
+  cart.forEach((item, index) => {
+    const itemTotal = item.price * item.quantity;
+    totalAmount += itemTotal;
+    itemsText +=
+      `<b>${index + 1}. ${item.productName}</b>\n` +
+      `• Đơn giá: <b>${formatVND(item.price)}</b>\n` +
+      `• Số lượng: <b>x${item.quantity}</b> ➔ Thành tiền: <b>${formatVND(itemTotal)}</b>\n\n`;
+  });
+
+  const cartMessage =
+    `🛒 <b>GIỎ HÀNG CỦA BẠN (${cart.length} loại sản phẩm)</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    itemsText +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `💳 <b>TỔNG TIỀN THANH TOÁN:</b> <b>${formatVND(totalAmount)}</b>\n\n` +
+    `<i>Quý khách sẽ quét 1 mã VietQR duy nhất để thanh toán toàn bộ giỏ hàng và nhận tài nguyên đồng thời!</i>`;
+
+  const keyboard = new InlineKeyboard();
+  keyboard.text("💳 Thanh toán toàn bộ giỏ hàng", "cart_checkout").row();
+
+  // Nút xóa từng món
+  cart.forEach((item) => {
+    keyboard.text(`❌ Xóa: ${item.productName.slice(0, 20)}...`, `cart_del:${item.productId}`).row();
+  });
+
+  keyboard.text("🗑 Làm trống giỏ", "cart_clear");
+  keyboard.text("➕ Thêm sản phẩm khác", "menu_products").row();
+
+  await ctx.reply(cartMessage, {
+    parse_mode: "HTML",
+    reply_markup: keyboard,
+  });
+}
+
+bot.hears(["🛒 Giỏ hàng", "Giỏ hàng", "gio hang", "Gio hang"], async (ctx) => renderCart(ctx));
+bot.command(["cart", "giohang"], async (ctx) => renderCart(ctx));
+bot.callbackQuery("cart_view", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  await renderCart(ctx, true);
+});
+
+// Thêm sản phẩm vào giỏ hàng
+bot.callbackQuery(/^cart_add:(\d+)$/, async (ctx) => {
+  const productId = parseInt(ctx.match[1], 10);
+  const telegramId = String(ctx.from?.id);
+
+  const product = await fetchSingleProductWithSupplierMeta(productId);
+  if (!product || !product.isActive) {
+    await ctx.answerCallbackQuery({ text: "Sản phẩm không tồn tại hoặc đã bị gỡ!", show_alert: true });
+    return;
+  }
+
+  const stockCount = getProductStockCount(product);
+  if (stockCount <= 0) {
+    await ctx.answerCallbackQuery({ text: "Sản phẩm hiện đang tạm hết hàng!", show_alert: true });
+    return;
+  }
+
+  const flashSale = await getActiveFlashSale();
+  const effectivePrice = flashSale
+    ? calculateFlashSalePrice(product.price, flashSale.discountPercent)
+    : product.price;
+
+  const updatedCart = addToUserCart(telegramId, {
+    productId: product.id,
+    productName: product.name,
+    price: effectivePrice,
+    quantity: 1,
+    category: product.category,
+  });
+
+  const totalItems = updatedCart.reduce((sum, i) => sum + i.quantity, 0);
+  await ctx.answerCallbackQuery({ text: `Đã thêm "${product.name}" vào giỏ hàng!` });
+
+  const keyboard = new InlineKeyboard()
+    .text(`🛒 Xem giỏ hàng (${totalItems})`, "cart_view")
+    .text("💳 Thanh toán ngay", "cart_checkout")
+    .row()
+    .text("➕ Xem sản phẩm khác", "menu_products");
+
+  await ctx.reply(
+    `✅ <b>ĐÃ THÊM VÀO GIỎ HÀNG THÀNH CÔNG!</b>\n\n` +
+    `• Sản phẩm: <b>${product.name}</b>\n` +
+    `• Đơn giá: <b>${formatVND(effectivePrice)}</b>\n` +
+    `• Giỏ hàng hiện tại: <b>${totalItems} sản phẩm</b>\n\n` +
+    `Quý khách có thể xem giỏ để thanh toán ngay hoặc tiếp tục chọn thêm sản phẩm khác:`,
+    { parse_mode: "HTML", reply_markup: keyboard }
+  );
+});
+
+// Xóa 1 món khỏi giỏ
+bot.callbackQuery(/^cart_del:(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery({ text: "Đã xóa sản phẩm khỏi giỏ!" }).catch(() => {});
+  const productId = parseInt(ctx.match[1], 10);
+  const telegramId = String(ctx.from?.id);
+  removeFromUserCart(telegramId, productId);
+  await renderCart(ctx, true);
+});
+
+// Làm trống giỏ hàng
+bot.callbackQuery("cart_clear", async (ctx) => {
+  await ctx.answerCallbackQuery({ text: "Đã làm trống giỏ hàng!" }).catch(() => {});
+  const telegramId = String(ctx.from?.id);
+  clearUserCart(telegramId);
+  await renderCart(ctx, true);
+});
+
+// Thanh toán giỏ hàng gom nhiều sản phẩm
+bot.callbackQuery("cart_checkout", async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  const telegramId = String(ctx.from?.id);
+  const username = ctx.from?.username || null;
+  const cart = getUserCart(telegramId);
+
+  if (cart.length === 0) {
+    await ctx.reply("Giỏ hàng của Quý khách đang trống!");
+    return;
+  }
+
+  // Kiểm tra tồn kho từng món
+  for (const item of cart) {
+    const prod = await fetchSingleProductWithSupplierMeta(item.productId);
+    if (!prod || !prod.isActive) {
+      await ctx.reply(
+        `Sản phẩm <b>${item.productName}</b> hiện không còn kinh doanh. Vui lòng bấm xóa món này khỏi giỏ!`,
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+    const available = getProductStockCount(prod);
+    if (available < item.quantity) {
+      await ctx.reply(
+        `Sản phẩm <b>${item.productName}</b> hiện chỉ còn ${available} trong kho (bạn đặt ${item.quantity}). Vui lòng điều chỉnh lại số lượng!`,
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+  }
+
+  const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const orderId = await generateOrderId();
+  const primaryItem = cart[0];
+
+  // Tạo đơn hàng chính đại diện trong cơ sở dữ liệu
+  await prisma.order.create({
+    data: {
+      id: orderId,
+      telegramId,
+      username,
+      productId: primaryItem.productId,
+      quantity: primaryItem.quantity,
+      totalAmount,
+      status: "PENDING",
+    },
+  });
+
+  // Lưu chi tiết giỏ hàng vào AppSetting với key `cart_group:${orderId}`
+  await prisma.appSetting.upsert({
+    where: { key: `cart_group:${orderId}` },
+    update: { value: JSON.stringify(cart) },
+    create: { key: `cart_group:${orderId}`, value: JSON.stringify(cart) },
+  }).catch(() => {});
+
+  const bank = await getDynamicBankInfo();
+  const qrBuffer = await fetchQRCodeBuffer(
+    bank.bankId,
+    bank.accountNo,
+    totalAmount,
+    orderId,
+    bank.accountName
+  );
+
+  let itemsSummary = "";
+  cart.forEach((item, idx) => {
+    itemsSummary += `• ${idx + 1}. <b>${item.productName}</b> x${item.quantity} (<code>${formatVND(item.price * item.quantity)}</code>)\n`;
+  });
+
+  const paymentText =
+    `🧾 <b>HÓA ĐƠN THANH TOÁN GIỎ HÀNG:</b> <code>${orderId}</code>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `📦 <b>Danh sách sản phẩm (${cart.length} món):</b>\n` +
+    itemsSummary +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `💳 <b>TỔNG THANH TOÁN:</b> <b>${formatVND(totalAmount)}</b>\n\n` +
+    `🏛 <b>THÔNG TIN CHUYỂN KHOẢN TỰ ĐỘNG:</b>\n` +
+    `• Ngân hàng: <b>${bank.bankId}</b>\n` +
+    `• Số tài khoản: <code>${bank.accountNo}</code>\n` +
+    `• Chủ tài khoản: <b>${bank.accountName}</b>\n` +
+    `• Số tiền: <code>${totalAmount}</code>\n` +
+    `• Nội dung chuyển khoản: <code>${orderId}</code>\n\n` +
+    `📌 <b>HƯỚNG DẪN THANH TOÁN:</b>\n` +
+    `1. Quý khách quét mã <b>VietQR</b> phía trên hoặc chuyển khoản đúng số tiền và nội dung <code>${orderId}</code>.\n` +
+    `2. Xin vui lòng giữ <b>NGUYÊN</b> nội dung chuyển khoản là <code>${orderId}</code> để hệ thống tự động đối soát.\n` +
+    `3. Bot sẽ tự động trả đủ toàn bộ ${cart.length} món tài nguyên sau 3 - 5 giây!\n\n` +
+    `<i>Xin cảm ơn Quý khách đã mua sắm tại RINQ SHOP!</i>`;
+
+  const userRec = await prisma.telegramUser.findUnique({ where: { id: telegramId } }).catch(() => null);
+  const userBalance = userRec?.balance || 0;
+
+  const keyboard = buildPaymentKeyboard({
+    orderId,
+    accountNo: bank.accountNo,
+    amount: totalAmount,
+    userBalance,
+    finalPrice: totalAmount,
+  });
+
+  await ctx.deleteMessage().catch(() => {});
+
+  let sentQrMsg: any = null;
+  if (qrBuffer) {
+    try {
+      sentQrMsg = await ctx.replyWithPhoto(new InputFile(qrBuffer, `vietqr_${orderId}.png`), {
+        caption: paymentText,
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+      });
+    } catch (photoErr) {
+      console.error("Lỗi gửi ảnh QR giỏ hàng:", photoErr);
+    }
+  }
+
+  if (!sentQrMsg) {
+    sentQrMsg = await ctx.reply(paymentText, {
+      parse_mode: "HTML",
+      reply_markup: keyboard,
+    });
+  }
+
+  if (sentQrMsg?.message_id) {
+    await prisma.order
+      .update({
+        where: { id: orderId },
+        data: { qrMessageId: sentQrMsg.message_id },
+      })
+      .catch(() => {});
+  }
+});
 
 // Helper tạo nội dung file text đơn hàng để tải xuống
 function generateOrderTextFile(orders: any[], userTelegramId: string, username?: string | null): string {
