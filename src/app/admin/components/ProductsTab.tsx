@@ -15,10 +15,6 @@ import {
   Trash2,
   Plus,
   Upload,
-  RotateCcw,
-  RefreshCw,
-  Wallet,
-  MoreHorizontal,
   X,
   Grid2X2,
   List,
@@ -214,27 +210,70 @@ export default function ProductsTab({
     setIsDeleting(false);
     setDeleteTarget(null);
   };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+      {/* Top Supplier Workspace Panel */}
       <div className="lg:col-span-12 flex flex-col gap-3 border-2 border-black bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Kho API</p><h2 className="mt-1 text-lg font-black uppercase">Nhập hàng từ nhà cung cấp</h2></div>
-        <button type="button" onClick={() => setShowSupplierWorkspace((open) => !open)} className="min-h-10 border-2 border-black bg-black px-4 text-xs font-black uppercase text-white hover:bg-[#2457C5]">{showSupplierWorkspace ? "Đóng khu nhập hàng" : "Mở khu nhập hàng"}</button>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Kho API</p>
+          <h2 className="mt-1 text-lg font-black uppercase">Nhập hàng từ nhà cung cấp</h2>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowSupplierWorkspace((open) => !open)}
+          className="min-h-10 border-2 border-black bg-black px-4 text-xs font-black uppercase text-white hover:bg-[#2457C5] transition active:scale-95"
+        >
+          {showSupplierWorkspace ? "Đóng khu nhập hàng" : "Mở khu nhập hàng"}
+        </button>
       </div>
-      {showSupplierWorkspace && <div className="lg:col-span-12"><div className="mb-3 flex gap-2"><button type="button" onClick={() => setSupplierPanel("robotic")} className={`min-h-9 border-2 border-black px-3 text-xs font-black uppercase ${supplierPanel === "robotic" ? "bg-[#2457C5] text-white" : "bg-white"}`}>RoboticVN</button><button type="button" onClick={() => setSupplierPanel("scoopy")} className={`min-h-9 border-2 border-black px-3 text-xs font-black uppercase ${supplierPanel === "scoopy" ? "bg-[#E63946] text-white" : "bg-white"}`}>ScoopyVN</button></div>{supplierPanel === "robotic" ? <RoboticImportPanel onImported={onScoopyImported} categoriesList={categoriesList} /> : <ScoopyImportPanel onImported={onScoopyImported} categoriesList={categoriesList} />}</div>}
 
-      {/* Product List Table (8 cols) */}
-      <div className="lg:col-span-12 bg-white rounded-[28px] border border-slate-200 p-5 sm:p-6 shadow-sm transition-all hover:shadow-md hover:border-slate-300">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-          <div>
-            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
-              <Package className="h-5 w-5 text-[#0e704b]" />
-              <span>Danh sách sản phẩm trong shop</span>
-            </h2>
-            <p className="text-xs text-slate-600 font-medium">Hiện có {products.length} sản phẩm</p>
+      {showSupplierWorkspace && (
+        <div className="lg:col-span-12">
+          <div className="mb-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSupplierPanel("robotic")}
+              className={`min-h-9 border-2 border-black px-3 text-xs font-black uppercase transition ${
+                supplierPanel === "robotic" ? "bg-[#2457C5] text-white" : "bg-white"
+              }`}
+            >
+              RoboticVN
+            </button>
+            <button
+              type="button"
+              onClick={() => setSupplierPanel("scoopy")}
+              className={`min-h-9 border-2 border-black px-3 text-xs font-black uppercase transition ${
+                supplierPanel === "scoopy" ? "bg-[#E63946] text-white" : "bg-white"
+              }`}
+            >
+              ScoopyVN
+            </button>
           </div>
+          {supplierPanel === "robotic" ? (
+            <RoboticImportPanel onImported={onScoopyImported} categoriesList={categoriesList} />
+          ) : (
+            <ScoopyImportPanel onImported={onScoopyImported} categoriesList={categoriesList} />
+          )}
+        </div>
+      )}
 
-          {/* Actions & Search box */}
-          <div className="flex flex-wrap items-center gap-2">
+      {/* Product List Section */}
+      <div className="lg:col-span-12 bg-white rounded-[24px] sm:rounded-[28px] border border-slate-200 p-4 sm:p-6 shadow-sm transition-all hover:shadow-md hover:border-slate-300">
+        
+        {/* Header: Title + Action Buttons */}
+        <div className="flex flex-col gap-3.5 mb-4 sm:mb-5">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                <Package className="h-5 w-5 text-[#0e704b] shrink-0" />
+                <span>Danh sách sản phẩm trong shop</span>
+              </h2>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Hiện có <span className="font-bold text-[#0e704b]">{products.length}</span> sản phẩm
+              </p>
+            </div>
+
             <button
               type="button"
               onClick={() => {
@@ -250,19 +289,43 @@ export default function ProductsTab({
               <Plus className="h-4 w-4" />
               <span>Thêm sản phẩm</span>
             </button>
-            <div className="relative">
-              <Search className="h-3.5 w-3.5 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
+          </div>
+
+          {/* Search Bar + List/Grid Switcher */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Tìm kiếm sản phẩm..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-3 py-1.5 rounded-full text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:border-emerald-600 w-full sm:w-44 text-slate-800 transition"
+                className="pl-8 pr-3 py-2 sm:py-1.5 rounded-full text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#0e704b] focus:bg-white w-full text-slate-800 transition"
               />
             </div>
-            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5" aria-label="Kiểu hiển thị">
-              <button type="button" onClick={() => setViewMode("list")} className={`rounded-md p-1.5 ${viewMode === "list" ? "bg-white text-slate-900 shadow-sm" : "text-slate-400"}`} aria-label="Hiển thị danh sách"><List className="h-4 w-4" /></button>
-              <button type="button" onClick={() => setViewMode("grid")} className={`rounded-md p-1.5 ${viewMode === "grid" ? "bg-white text-slate-900 shadow-sm" : "text-slate-400"}`} aria-label="Hiển thị lưới"><Grid2X2 className="h-4 w-4" /></button>
+            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 shrink-0" aria-label="Kiểu hiển thị">
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={`rounded-md p-1.5 transition ${
+                  viewMode === "list" ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-700"
+                }`}
+                aria-label="Hiển thị danh sách"
+                title="Hiển thị danh sách"
+              >
+                <List className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                className={`rounded-md p-1.5 transition ${
+                  viewMode === "grid" ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-700"
+                }`}
+                aria-label="Hiển thị lưới"
+                title="Hiển thị lưới"
+              >
+                <Grid2X2 className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -285,7 +348,7 @@ export default function ProductsTab({
                 e.currentTarget.scrollLeft += e.deltaY;
               }
             }}
-            className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent select-none px-1"
+            className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none select-none px-0.5 -mx-1"
           >
             <button
               type="button"
@@ -301,13 +364,40 @@ export default function ProductsTab({
             {categoriesList.map((cat) => {
               const isSelected = selectedProductCategory === cat.name;
               return (
-                <div key={cat.name} className={`flex shrink-0 items-center rounded-full border transition ${isSelected ? "border-[#0e704b] bg-[#0e704b] text-white shadow-sm" : "border-emerald-100 bg-emerald-50 text-[#0e704b] hover:bg-emerald-100"}`}>
-                  <button type="button" onClick={() => setSelectedProductCategory(cat.name)} className="flex items-center gap-1.5 py-1.5 pl-3 pr-1 text-xs font-bold whitespace-nowrap">
+                <div
+                  key={cat.name}
+                  className={`flex shrink-0 items-center rounded-full border transition ${
+                    isSelected
+                      ? "border-[#0e704b] bg-[#0e704b] text-white shadow-sm"
+                      : "border-emerald-100 bg-emerald-50/80 text-[#0e704b] hover:bg-emerald-100"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProductCategory(cat.name)}
+                    className="flex items-center gap-1.5 py-1.5 pl-3 pr-1 text-xs font-bold whitespace-nowrap"
+                  >
                     <Folder className="h-3.5 w-3.5 shrink-0" />
                     <span>{cat.name}</span>
-                    <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${isSelected ? "bg-white/20 text-white" : "bg-emerald-200/60 text-[#0e704b]"}`}>{cat.count}</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${
+                        isSelected ? "bg-white/20 text-white" : "bg-emerald-200/60 text-[#0e704b]"
+                      }`}
+                    >
+                      {cat.count}
+                    </span>
                   </button>
-                  <button type="button" onClick={() => openRenameCategory(cat.name)} className={`mr-1 rounded-full p-1.5 transition ${isSelected ? "text-white/80 hover:bg-white/20 hover:text-white" : "text-[#0e704b]/60 hover:bg-white hover:text-[#0e704b]"}`} aria-label={`Sửa tên danh mục ${cat.name}`} title="Sửa tên danh mục">
+                  <button
+                    type="button"
+                    onClick={() => openRenameCategory(cat.name)}
+                    className={`mr-1 rounded-full p-1.5 transition ${
+                      isSelected
+                        ? "text-white/80 hover:bg-white/20 hover:text-white"
+                        : "text-[#0e704b]/60 hover:bg-white hover:text-[#0e704b]"
+                    }`}
+                    aria-label={`Sửa tên danh mục ${cat.name}`}
+                    title="Sửa tên danh mục"
+                  >
                     <Pencil className="h-3 w-3" />
                   </button>
                 </div>
@@ -325,236 +415,561 @@ export default function ProductsTab({
           </button>
         </div>
 
-        <div className={viewMode === "list" ? "overflow-x-auto" : "hidden"}>
-          <table className="w-full table-fixed text-left text-xs sm:text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 text-slate-600 uppercase text-[10px] tracking-wider font-bold">
-                <th className="w-[48%] pb-3">Sản phẩm</th>
-                <th className="w-[14%] pb-3">Giá bán</th>
-                <th className="w-[12%] pb-3">Tồn kho</th>
-                <th className="w-[8%] pb-3">Đã bán</th>
-                <th className="w-[18%] pb-3 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {filteredProducts.map((p) => (
-                <tr key={p.id} className="group hover:bg-slate-50/80 transition-colors">
-                  <td className="py-2.5 pr-4 align-middle">
-                    <div className="flex items-center gap-2.5">
-                      {p.imageUrl ? (
-                        <img
-                          src={p.imageUrl}
-                          alt={p.name}
-                          className="h-10 w-10 rounded-xl object-cover border border-slate-200 shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        <div className="h-9 w-9 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-400 shrink-0">
-                          <ImageIcon className="h-4 w-4" />
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <button type="button" onClick={() => setSelectedProduct(p)} className="text-left font-bold text-slate-900 leading-5 hover:text-[#0e704b]">{p.name}</button>
-                        <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(p)}
-                            title="Bấm để đổi folder / danh mục"
-                            className="inline-flex items-center gap-1 rounded bg-slate-100 hover:bg-emerald-100 hover:text-[#0e704b] px-1.5 py-0.5 font-bold text-slate-700 transition"
-                          >
-                            <Folder className="h-3 w-3 text-slate-400" />
-                            <span>{p.category || "Chưa phân loại"}</span>
-                          </button>
-                          {p.supplierVariantId?.startsWith("SCOOPY:") ? (
-                            <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-bold text-amber-800">
-                              <Server className="h-2.5 w-2.5" />
-                              ScoopyVN
-                            </span>
-                          ) : p.supplierVariantId?.startsWith("ROBOTIC:") ? (
-                            <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 font-bold text-blue-700"><Server className="h-2.5 w-2.5" />RoboticVN</span>
-                          ) : p.supplierVariantId ? (
-                            <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 font-bold text-blue-700"><Server className="h-2.5 w-2.5" />API</span>
-                          ) : (
-                            <span className="rounded bg-slate-50 px-1.5 py-0.5 font-medium text-slate-500">Thủ công</span>
-                          )}
-                          {p.priceNote && (
-                            <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-bold text-amber-700">
-                              <FileText className="h-2.5 w-2.5 shrink-0 text-amber-600" />
-                              Ghi chú giá
-                            </span>
-                          )}
-                        </div>
+        {/* View Mode: LIST */}
+        <div className={viewMode === "list" ? "block" : "hidden"}>
+          
+          {/* 1. MOBILE INTERFACE: Modern Card-based List Layout (< 768px) */}
+          <div className="md:hidden space-y-3">
+            {filteredProducts.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-slate-500 text-xs">
+                Không tìm thấy sản phẩm nào phù hợp.
+              </div>
+            ) : (
+              filteredProducts.map((p) => (
+                <div
+                  key={p.id}
+                  className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs transition hover:border-[#0e704b]/40 hover:shadow-sm"
+                >
+                  {/* Top: Thumbnail Image + Product Title + Category Tags */}
+                  <div className="flex items-start gap-3">
+                    {p.imageUrl ? (
+                      <img
+                        src={p.imageUrl}
+                        alt={p.name}
+                        className="h-12 w-12 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-50"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <div className="h-12 w-12 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-400 shrink-0">
+                        <ImageIcon className="h-5 w-5" />
+                      </div>
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProduct(p)}
+                        className="text-left font-bold text-slate-900 text-sm leading-snug line-clamp-2 hover:text-[#0e704b] transition-colors"
+                      >
+                        {p.name}
+                      </button>
+
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(p)}
+                          title="Bấm để đổi folder / danh mục"
+                          className="inline-flex items-center gap-1 rounded bg-slate-100 hover:bg-emerald-50 hover:text-[#0e704b] px-1.5 py-0.5 font-bold text-slate-600 transition"
+                        >
+                          <Folder className="h-2.5 w-2.5 text-slate-400" />
+                          <span>{p.category || "Chưa phân loại"}</span>
+                        </button>
+
+                        {p.supplierVariantId?.startsWith("SCOOPY:") ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-bold text-amber-800">
+                            <Server className="h-2.5 w-2.5" />
+                            ScoopyVN
+                          </span>
+                        ) : p.supplierVariantId?.startsWith("ROBOTIC:") ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 font-bold text-blue-700">
+                            <Server className="h-2.5 w-2.5" />
+                            RoboticVN
+                          </span>
+                        ) : p.supplierVariantId ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 font-bold text-blue-700">
+                            <Server className="h-2.5 w-2.5" />
+                            API
+                          </span>
+                        ) : (
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-500">
+                            Thủ công
+                          </span>
+                        )}
+
+                        {!p.isActive && (
+                          <span className="rounded bg-amber-100/80 px-1.5 py-0.5 font-bold text-amber-800">
+                            Đang ẩn
+                          </span>
+                        )}
+
+                        {p.priceNote && (
+                          <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-bold text-amber-700">
+                            <FileText className="h-2.5 w-2.5 shrink-0 text-amber-600" />
+                            Ghi chú giá
+                          </span>
+                        )}
                       </div>
                     </div>
-                  </td>
-                  <td className="py-2.5 align-middle font-extrabold text-[#0e704b] whitespace-nowrap">
-                    {p.price.toLocaleString("vi-VN")} đ
-                  </td>
-                  <td className="py-2.5 align-middle whitespace-nowrap">
-                    {p.stockAvailable > 0 ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-[#0e704b] border border-emerald-100">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                        Còn {p.stockAvailable}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-bold text-rose-600 border border-rose-100">
-                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
-                        Hết
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2.5 align-middle font-bold text-slate-700 whitespace-nowrap">
-                    {p.stockSold} cái
-                  </td>
-                  <td className="py-2.5 align-middle text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setQuickStockTarget(p);
-                          setQuickStockText("");
-                          setQuickNotify(true);
-                        }}
-                        title="Nạp thêm kho nhanh cho sản phẩm này"
-                        aria-label={`Nạp kho ${p.name}`}
-                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1.5 text-xs font-bold text-[#0e704b] hover:bg-[#0e704b] hover:text-white transition shadow-sm"
-                      >
-                        <Upload className="h-3.5 w-3.5" />
-                        <span className="hidden xl:inline">Nạp kho</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(p)}
-                        title="Chỉnh sửa sản phẩm"
-                        aria-label={`Sửa ${p.name}`}
-                        className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-[#0e704b] transition"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleProduct(p.id, p.isActive)}
-                        title={p.isActive ? "Đang hiện (bấm để ẩn)" : "Đang ẩn (bấm để hiện)"}
-                        aria-label={`Ẩn/Hiện ${p.name}`}
-                        className={`rounded-lg p-1.5 transition ${p.isActive ? "text-slate-500 hover:bg-slate-100 hover:text-slate-800" : "text-amber-600 bg-amber-50 hover:bg-amber-100"}`}
-                      >
-                        {p.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleNotifyProduct(p.id, p.name)}
-                        title="Gửi thông báo Telegram"
-                        aria-label={`Thông báo ${p.name}`}
-                        className="rounded-lg p-1.5 text-pink-600 hover:bg-pink-50 transition"
-                      >
-                        <Bell className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openDeleteProduct(p)}
-                        title="Xóa sản phẩm"
-                        aria-label={`Xóa ${p.name}`}
-                        className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-600 hover:text-white transition shadow-sm"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span className="hidden xl:inline">Xóa</span>
-                      </button>
+                  </div>
+
+                  {/* Middle: Clean Metrics Strip (Giá bán - Tồn kho - Đã bán) */}
+                  <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-slate-50/90 p-2.5 border border-slate-100 text-center">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Giá bán</p>
+                      <p className="mt-0.5 text-xs sm:text-sm font-extrabold text-[#0e704b]">
+                        {p.price.toLocaleString("vi-VN")} đ
+                      </p>
                     </div>
-                  </td>
+
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tồn kho</p>
+                      <div className="mt-0.5 flex justify-center">
+                        {p.stockAvailable > 0 ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-0.5 text-[11px] font-bold text-[#0e704b]">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            Còn {p.stockAvailable}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-rose-100/80 px-2 py-0.5 text-[11px] font-bold text-rose-600">
+                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                            Hết hàng
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Đã bán</p>
+                      <p className="mt-0.5 text-xs sm:text-sm font-bold text-slate-700">
+                        {p.stockSold} cái
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Bottom: Touch-friendly Action Bar */}
+                  <div className="mt-3 flex items-center gap-1.5 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuickStockTarget(p);
+                        setQuickStockText("");
+                        setQuickNotify(true);
+                      }}
+                      className="flex-1 min-h-[38px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-[#0e704b] border border-emerald-200/80 hover:bg-[#0e704b] hover:text-white transition active:scale-95 shadow-2xs"
+                    >
+                      <Upload className="h-4 w-4" />
+                      <span>Nạp kho</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(p)}
+                      title="Chỉnh sửa sản phẩm"
+                      className="inline-flex items-center justify-center gap-1 min-h-[38px] px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition active:scale-95"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      <span>Sửa</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleToggleProduct(p.id, p.isActive)}
+                      title={p.isActive ? "Đang hiện (bấm để ẩn)" : "Đang ẩn (bấm để hiện)"}
+                      className={`min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl border transition active:scale-95 ${
+                        p.isActive
+                          ? "border-slate-200 text-slate-500 hover:bg-slate-100"
+                          : "border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100"
+                      }`}
+                    >
+                      {p.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleNotifyProduct(p.id, p.name)}
+                      title="Gửi thông báo Telegram"
+                      className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl bg-pink-50 border border-pink-100 text-pink-600 hover:bg-pink-100 transition active:scale-95"
+                    >
+                      <Bell className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => openDeleteProduct(p)}
+                      title="Xóa sản phẩm"
+                      className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-600 hover:text-white transition active:scale-95"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* 2. DESKTOP INTERFACE: Professional Wide Table (>= 768px) */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left text-xs sm:text-sm min-w-[760px]">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-500 uppercase text-[10px] tracking-wider font-bold">
+                  <th className="py-3 pr-4 w-[42%]">Sản phẩm</th>
+                  <th className="py-3 px-3 w-[15%]">Giá bán</th>
+                  <th className="py-3 px-3 w-[13%]">Tồn kho</th>
+                  <th className="py-3 px-3 w-[10%]">Đã bán</th>
+                  <th className="py-3 pl-3 text-right w-[20%]">Thao tác</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredProducts.map((p) => (
+                  <tr key={p.id} className="group hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 pr-4 align-middle">
+                      <div className="flex items-center gap-3">
+                        {p.imageUrl ? (
+                          <img
+                            src={p.imageUrl}
+                            alt={p.name}
+                            className="h-10 w-10 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-50"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-400 shrink-0">
+                            <ImageIcon className="h-4 w-4" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProduct(p)}
+                            className="text-left font-bold text-slate-900 leading-snug hover:text-[#0e704b] transition-colors"
+                          >
+                            {p.name}
+                          </button>
+                          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(p)}
+                              title="Bấm để đổi folder / danh mục"
+                              className="inline-flex items-center gap-1 rounded bg-slate-100 hover:bg-emerald-100 hover:text-[#0e704b] px-1.5 py-0.5 font-bold text-slate-700 transition"
+                            >
+                              <Folder className="h-3 w-3 text-slate-400" />
+                              <span>{p.category || "Chưa phân loại"}</span>
+                            </button>
+                            {p.supplierVariantId?.startsWith("SCOOPY:") ? (
+                              <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-bold text-amber-800">
+                                <Server className="h-2.5 w-2.5" />
+                                ScoopyVN
+                              </span>
+                            ) : p.supplierVariantId?.startsWith("ROBOTIC:") ? (
+                              <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 font-bold text-blue-700">
+                                <Server className="h-2.5 w-2.5" />
+                                RoboticVN
+                              </span>
+                            ) : p.supplierVariantId ? (
+                              <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 font-bold text-blue-700">
+                                <Server className="h-2.5 w-2.5" />
+                                API
+                              </span>
+                            ) : (
+                              <span className="rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-500">
+                                Thủ công
+                              </span>
+                            )}
+                            {p.priceNote && (
+                              <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-bold text-amber-700">
+                                <FileText className="h-2.5 w-2.5 shrink-0 text-amber-600" />
+                                Ghi chú giá
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 align-middle font-extrabold text-[#0e704b] whitespace-nowrap">
+                      {p.price.toLocaleString("vi-VN")} đ
+                    </td>
+                    <td className="py-3 px-3 align-middle whitespace-nowrap">
+                      {p.stockAvailable > 0 ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-[#0e704b] border border-emerald-100">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                          Còn {p.stockAvailable}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-bold text-rose-600 border border-rose-100">
+                          <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                          Hết
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 align-middle font-bold text-slate-700 whitespace-nowrap">
+                      {p.stockSold} cái
+                    </td>
+                    <td className="py-3 pl-3 align-middle text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setQuickStockTarget(p);
+                            setQuickStockText("");
+                            setQuickNotify(true);
+                          }}
+                          title="Nạp thêm kho nhanh cho sản phẩm này"
+                          aria-label={`Nạp kho ${p.name}`}
+                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-[#0e704b] hover:bg-[#0e704b] hover:text-white transition shadow-sm"
+                        >
+                          <Upload className="h-3.5 w-3.5" />
+                          <span className="hidden xl:inline">Nạp kho</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(p)}
+                          title="Chỉnh sửa sản phẩm"
+                          aria-label={`Sửa ${p.name}`}
+                          className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-[#0e704b] transition"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleProduct(p.id, p.isActive)}
+                          title={p.isActive ? "Đang hiện (bấm để ẩn)" : "Đang ẩn (bấm để hiện)"}
+                          aria-label={`Ẩn/Hiện ${p.name}`}
+                          className={`rounded-lg p-1.5 transition ${
+                            p.isActive
+                              ? "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                              : "text-amber-600 bg-amber-50 hover:bg-amber-100"
+                          }`}
+                        >
+                          {p.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleNotifyProduct(p.id, p.name)}
+                          title="Gửi thông báo Telegram"
+                          aria-label={`Thông báo ${p.name}`}
+                          className="rounded-lg p-1.5 text-pink-600 hover:bg-pink-50 transition"
+                        >
+                          <Bell className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDeleteProduct(p)}
+                          title="Xóa sản phẩm"
+                          aria-label={`Xóa ${p.name}`}
+                          className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-600 hover:text-white transition shadow-sm"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span className="hidden xl:inline">Xóa</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div className={viewMode === "grid" ? "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" : "hidden"}>
+        {/* View Mode: GRID */}
+        <div className={viewMode === "grid" ? "grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3" : "hidden"}>
           {filteredProducts.map((p) => (
-            <article key={p.id} className="group relative rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition hover:border-slate-300 hover:bg-white">
+            <article
+              key={p.id}
+              className="group relative rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition hover:border-[#0e704b]/40 hover:bg-white hover:shadow-sm"
+            >
               <div className="flex items-start gap-3">
-                {p.imageUrl ? <img src={p.imageUrl} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" /> : <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-slate-400"><ImageIcon className="h-5 w-5" /></div>}
-                <div className="min-w-0 flex-1"><button type="button" onClick={() => setSelectedProduct(p)} className="line-clamp-2 text-left text-sm font-extrabold leading-5 text-slate-900 hover:text-[#0e704b]">{p.name}</button><div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-bold"><button type="button" onClick={() => openEditModal(p)} title="Bấm để đổi folder / danh mục" className="inline-flex items-center gap-1 rounded bg-white px-1.5 py-1 text-slate-600 hover:bg-emerald-100 hover:text-[#0e704b] transition"><Folder className="h-2.5 w-2.5 text-slate-400" /><span>{p.category || "Chưa phân loại"}</span></button><span className={`rounded px-1.5 py-1 ${p.supplierVariantId ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}>{p.supplierVariantId?.startsWith("ROBOTIC:") ? "RoboticVN" : p.supplierVariantId?.startsWith("SCOOPY:") ? "ScoopyVN" : p.supplierVariantId ? "API" : "Thủ công"}</span></div></div>
-                <div className="flex items-center gap-1">
+                {p.imageUrl ? (
+                  <img
+                    src={p.imageUrl}
+                    alt=""
+                    className="h-12 w-12 shrink-0 rounded-xl object-cover border border-slate-200 bg-white"
+                  />
+                ) : (
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400">
+                    <ImageIcon className="h-5 w-5" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
                   <button
                     type="button"
-                    onClick={() => {
-                      setQuickStockTarget(p);
-                      setQuickStockText("");
-                      setQuickNotify(true);
-                    }}
-                    title="Nạp kho nhanh"
-                    className="rounded-lg bg-emerald-50 p-1.5 text-[#0e704b] hover:bg-[#0e704b] hover:text-white transition"
+                    onClick={() => setSelectedProduct(p)}
+                    className="line-clamp-2 text-left text-sm font-extrabold leading-5 text-slate-900 hover:text-[#0e704b]"
                   >
-                    <Upload className="h-4 w-4" />
+                    {p.name}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => openEditModal(p)}
-                    title="Chỉnh sửa sản phẩm"
-                    className="rounded-lg p-1.5 text-slate-500 hover:bg-white hover:text-[#0e704b] transition"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleProduct(p.id, p.isActive)}
-                    title={p.isActive ? "Đang hiện (bấm để ẩn)" : "Đang ẩn (bấm để hiện)"}
-                    className={`rounded-lg p-1.5 transition ${p.isActive ? "text-slate-500 hover:bg-white" : "text-amber-600 bg-amber-50"}`}
-                  >
-                    {p.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openDeleteProduct(p)}
-                    title="Xóa sản phẩm"
-                    className="rounded-lg bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-600 hover:text-white transition"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(p)}
+                      title="Bấm để đổi folder / danh mục"
+                      className="inline-flex items-center gap-1 rounded bg-white px-1.5 py-1 text-slate-600 hover:bg-emerald-100 hover:text-[#0e704b] transition shadow-2xs"
+                    >
+                      <Folder className="h-2.5 w-2.5 text-slate-400" />
+                      <span>{p.category || "Chưa phân loại"}</span>
+                    </button>
+                    <span
+                      className={`rounded px-1.5 py-1 ${
+                        p.supplierVariantId ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {p.supplierVariantId?.startsWith("ROBOTIC:")
+                        ? "RoboticVN"
+                        : p.supplierVariantId?.startsWith("SCOOPY:")
+                        ? "ScoopyVN"
+                        : p.supplierVariantId
+                        ? "API"
+                        : "Thủ công"}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div className="mt-4 flex items-end justify-between border-t border-slate-200 pt-3"><div><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Giá bán</p><p className="mt-0.5 text-lg font-black text-[#0e704b]">{p.price.toLocaleString("vi-VN")} đ</p></div><div className="text-right"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Tồn kho</p><p className={`mt-0.5 text-sm font-extrabold ${p.stockAvailable > 0 ? "text-emerald-700" : "text-rose-600"}`}>{p.stockAvailable > 0 ? `${p.stockAvailable} cái` : "Hết hàng"}</p></div></div>
+
+              {/* Grid Metrics Strip */}
+              <div className="mt-3.5 grid grid-cols-2 gap-2 rounded-xl bg-white p-2.5 border border-slate-100">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Giá bán</p>
+                  <p className="mt-0.5 text-sm font-black text-[#0e704b]">{p.price.toLocaleString("vi-VN")} đ</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Tồn kho</p>
+                  <p className={`mt-0.5 text-xs font-extrabold ${p.stockAvailable > 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                    {p.stockAvailable > 0 ? `Còn ${p.stockAvailable} cái` : "Hết hàng"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons in Grid */}
+              <div className="mt-3 flex items-center justify-between gap-1.5 pt-2 border-t border-slate-200/80">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuickStockTarget(p);
+                    setQuickStockText("");
+                    setQuickNotify(true);
+                  }}
+                  className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-1.5 text-xs font-bold text-[#0e704b] hover:bg-[#0e704b] hover:text-white transition shadow-2xs"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  <span>Nạp kho</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openEditModal(p)}
+                  title="Chỉnh sửa sản phẩm"
+                  className="rounded-xl bg-white border border-slate-200 p-2 text-slate-600 hover:text-[#0e704b] transition shadow-2xs"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleProduct(p.id, p.isActive)}
+                  title={p.isActive ? "Đang hiện (bấm để ẩn)" : "Đang ẩn (bấm để hiện)"}
+                  className={`rounded-xl border p-2 transition shadow-2xs ${
+                    p.isActive ? "border-slate-200 bg-white text-slate-600" : "border-amber-200 bg-amber-50 text-amber-600"
+                  }`}
+                >
+                  {p.isActive ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openDeleteProduct(p)}
+                  title="Xóa sản phẩm"
+                  className="rounded-xl bg-rose-50 border border-rose-100 p-2 text-rose-600 hover:bg-rose-600 hover:text-white transition shadow-2xs"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </article>
           ))}
         </div>
       </div>
 
+      {/* Category Rename Modal */}
       {mounted && typeof document !== "undefined" && editingCategory && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 overflow-y-auto" role="presentation" onMouseDown={() => !isRenamingCategory && setEditingCategory(null)}>
-          <form role="dialog" aria-modal="true" aria-labelledby="rename-category-title" onSubmit={submitRenameCategory} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl my-auto">
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 overflow-y-auto"
+          role="presentation"
+          onMouseDown={() => !isRenamingCategory && setEditingCategory(null)}
+        >
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rename-category-title"
+            onSubmit={submitRenameCategory}
+            onMouseDown={(event) => event.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl my-auto"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Danh mục sản phẩm</p>
-                <h2 id="rename-category-title" className="mt-1 text-lg font-black text-slate-900">Sửa tên danh mục</h2>
+                <h2 id="rename-category-title" className="mt-1 text-lg font-black text-slate-900">
+                  Sửa tên danh mục
+                </h2>
               </div>
-              <button type="button" onClick={() => setEditingCategory(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Đóng">
+              <button
+                type="button"
+                onClick={() => setEditingCategory(null)}
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                aria-label="Đóng"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
             <label className="mt-5 block text-xs font-bold uppercase tracking-wide text-slate-600">
               Tên mới
-              <input autoFocus value={categoryDraft} onChange={(event) => setCategoryDraft(event.target.value)} maxLength={120} placeholder="Ví dụ: Tài khoản AI" className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#0e704b] focus:ring-2 focus:ring-emerald-100" />
+              <input
+                autoFocus
+                value={categoryDraft}
+                onChange={(event) => setCategoryDraft(event.target.value)}
+                maxLength={120}
+                placeholder="Ví dụ: Tài khoản AI"
+                className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#0e704b] focus:ring-2 focus:ring-emerald-100"
+              />
             </label>
             <p className="mt-2 text-xs text-slate-500">Đổi tên sẽ cập nhật toàn bộ sản phẩm trong danh mục này.</p>
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" disabled={isRenamingCategory} onClick={() => setEditingCategory(null)} className="min-h-10 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50">Hủy</button>
-              <button type="submit" disabled={isRenamingCategory || !categoryDraft.trim()} className="min-h-10 rounded-xl bg-[#0e704b] px-4 text-sm font-bold text-white hover:bg-[#095c3d] disabled:cursor-not-allowed disabled:opacity-50">{isRenamingCategory ? "Đang lưu…" : "Lưu tên mới"}</button>
+              <button
+                type="button"
+                disabled={isRenamingCategory}
+                onClick={() => setEditingCategory(null)}
+                className="min-h-10 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={isRenamingCategory || !categoryDraft.trim()}
+                className="min-h-10 rounded-xl bg-[#0e704b] px-4 text-sm font-bold text-white hover:bg-[#095c3d] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isRenamingCategory ? "Đang lưu…" : "Lưu tên mới"}
+              </button>
             </div>
           </form>
         </div>,
         document.body
       )}
 
+      {/* Delete Product Modal */}
       {mounted && typeof document !== "undefined" && deleteTarget && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 overflow-y-auto" role="presentation" onMouseDown={() => !isDeleting && setDeleteTarget(null)}>
-          <form role="dialog" aria-modal="true" aria-labelledby="delete-product-title" onSubmit={submitDeleteProduct} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl my-auto">
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 overflow-y-auto"
+          role="presentation"
+          onMouseDown={() => !isDeleting && setDeleteTarget(null)}
+        >
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-product-title"
+            onSubmit={submitDeleteProduct}
+            onMouseDown={(event) => event.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl my-auto"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-rose-600">Xóa sản phẩm</p>
-                <h2 id="delete-product-title" className="mt-1 text-lg font-black text-slate-900">{deleteTarget.name}</h2>
+                <h2 id="delete-product-title" className="mt-1 text-lg font-black text-slate-900">
+                  {deleteTarget.name}
+                </h2>
               </div>
-              <button type="button" onClick={() => setDeleteTarget(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Đóng">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                aria-label="Đóng"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -564,7 +979,12 @@ export default function ProductsTab({
             </p>
 
             <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <input type="checkbox" checked={notifyOnDelete} onChange={(event) => setNotifyOnDelete(event.target.checked)} className="mt-0.5 h-4 w-4 accent-rose-600" />
+              <input
+                type="checkbox"
+                checked={notifyOnDelete}
+                onChange={(event) => setNotifyOnDelete(event.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-rose-600"
+              />
               <span>
                 <span className="block text-sm font-bold text-slate-900">Gửi thông báo gỡ hàng cho khách qua Bot</span>
                 <span className="mt-0.5 block text-xs text-slate-500">Mặc định tắt. Chỉ bật nếu muốn thông báo toàn bộ người theo dõi bot.</span>
@@ -574,15 +994,31 @@ export default function ProductsTab({
             {notifyOnDelete && (
               <label className="mt-3 block text-xs font-bold uppercase tracking-wide text-slate-600">
                 Lý do gỡ sản phẩm <span className="text-rose-600">*</span>
-                <textarea value={deleteReason} onChange={(event) => setDeleteReason(event.target.value)} maxLength={500} rows={2} placeholder="Ví dụ: Nhà cung cấp ngừng hỗ trợ gói..." className="mt-1.5 w-full resize-none rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" />
+                <textarea
+                  value={deleteReason}
+                  onChange={(event) => setDeleteReason(event.target.value)}
+                  maxLength={500}
+                  rows={2}
+                  placeholder="Ví dụ: Nhà cung cấp ngừng hỗ trợ gói..."
+                  className="mt-1.5 w-full resize-none rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
+                />
               </label>
             )}
 
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" disabled={isDeleting} onClick={() => setDeleteTarget(null)} className="min-h-10 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeleteTarget(null)}
+                className="min-h-10 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50"
+              >
                 Hủy
               </button>
-              <button type="submit" disabled={isDeleting || (notifyOnDelete && !deleteReason.trim())} className="min-h-10 rounded-xl bg-rose-600 px-5 text-sm font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50">
+              <button
+                type="submit"
+                disabled={isDeleting || (notifyOnDelete && !deleteReason.trim())}
+                className="min-h-10 rounded-xl bg-rose-600 px-5 text-sm font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
                 {isDeleting ? "Đang xóa…" : notifyOnDelete ? "Xóa & Báo khách" : "Xóa vĩnh viễn"}
               </button>
             </div>
@@ -591,31 +1027,53 @@ export default function ProductsTab({
         document.body
       )}
 
+      {/* Product Detail Drawer */}
       {mounted && typeof document !== "undefined" && selectedProduct && createPortal(
-        <div className="fixed inset-0 z-[9999] flex justify-end bg-black/40" role="presentation" onClick={() => setSelectedProduct(null)}>
-          <aside role="dialog" aria-modal="true" aria-label="Chi tiết sản phẩm" onClick={(event) => event.stopPropagation()} className="h-full w-full max-w-md overflow-y-auto bg-white p-5 shadow-2xl">
+        <div
+          className="fixed inset-0 z-[9999] flex justify-end bg-black/40"
+          role="presentation"
+          onClick={() => setSelectedProduct(null)}
+        >
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-label="Chi tiết sản phẩm"
+            onClick={(event) => event.stopPropagation()}
+            className="h-full w-full max-w-md overflow-y-auto bg-white p-5 shadow-2xl"
+          >
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Chi tiết sản phẩm</p>
                 <h2 className="mt-1 text-xl font-black text-slate-900">{selectedProduct.name}</h2>
               </div>
-              <button type="button" onClick={() => setSelectedProduct(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Đóng">
+              <button
+                type="button"
+                onClick={() => setSelectedProduct(null)}
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                aria-label="Đóng"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
             {selectedProduct.imageUrl ? (
-              <img src={selectedProduct.imageUrl} alt="" className="mt-5 h-40 w-full rounded-2xl object-cover" />
+              <img
+                src={selectedProduct.imageUrl}
+                alt=""
+                className="mt-5 h-40 w-full rounded-2xl object-cover border border-slate-200"
+              />
             ) : (
-              <div className="mt-5 flex h-40 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+              <div className="mt-5 flex h-40 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 border border-slate-200">
                 <ImageIcon className="h-8 w-8" />
               </div>
             )}
             <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-slate-50 p-3">
+              <div className="rounded-xl bg-slate-50 p-3 border border-slate-100">
                 <p className="text-[10px] font-bold uppercase text-slate-500">Giá bán</p>
-                <p className="mt-1 text-lg font-black text-[#0e704b]">{selectedProduct.price.toLocaleString("vi-VN")} đ</p>
+                <p className="mt-1 text-lg font-black text-[#0e704b]">
+                  {selectedProduct.price.toLocaleString("vi-VN")} đ
+                </p>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3">
+              <div className="rounded-xl bg-slate-50 p-3 border border-slate-100">
                 <p className="text-[10px] font-bold uppercase text-slate-500">Tồn kho</p>
                 <p className="mt-1 text-lg font-black text-slate-900">{selectedProduct.stockAvailable} cái</p>
               </div>
@@ -627,7 +1085,15 @@ export default function ProductsTab({
               </div>
               <div>
                 <dt className="text-xs font-bold uppercase text-slate-500">Nguồn cấp</dt>
-                <dd className="mt-1 font-semibold text-slate-900">{selectedProduct.supplierVariantId?.startsWith("ROBOTIC:") ? "RoboticVN" : selectedProduct.supplierVariantId?.startsWith("SCOOPY:") ? "ScoopyVN" : selectedProduct.supplierVariantId ? "API" : "Thủ công"}</dd>
+                <dd className="mt-1 font-semibold text-slate-900">
+                  {selectedProduct.supplierVariantId?.startsWith("ROBOTIC:")
+                    ? "RoboticVN"
+                    : selectedProduct.supplierVariantId?.startsWith("SCOOPY:")
+                    ? "ScoopyVN"
+                    : selectedProduct.supplierVariantId
+                    ? "API"
+                    : "Thủ công"}
+                </dd>
               </div>
               <div>
                 <dt className="text-xs font-bold uppercase text-slate-500">Mô tả</dt>
@@ -650,13 +1116,41 @@ export default function ProductsTab({
                   setQuickStockText("");
                   setQuickNotify(true);
                 }}
-                className="rounded-xl bg-emerald-50 px-4 py-3 text-xs font-bold text-[#0e704b] hover:bg-emerald-100 transition"
+                className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs font-bold text-[#0e704b] hover:bg-emerald-100 transition shadow-2xs"
               >
                 Nạp kho
               </button>
-              <button type="button" onClick={() => { openEditModal(selectedProduct); setSelectedProduct(null); }} className="flex-1 min-w-[120px] rounded-xl bg-[#0e704b] px-4 py-3 text-xs font-bold text-white hover:bg-[#0a5c3d] transition">Sửa sản phẩm</button>
-              <button type="button" onClick={() => { handleNotifyProduct(selectedProduct.id, selectedProduct.name); setSelectedProduct(null); }} className="rounded-xl bg-pink-50 px-4 py-3 text-xs font-bold text-pink-600 hover:bg-pink-100 transition">Thông báo</button>
-              <button type="button" onClick={() => { const prod = selectedProduct; setSelectedProduct(null); openDeleteProduct(prod); }} className="rounded-xl bg-rose-50 px-4 py-3 text-xs font-bold text-rose-600 hover:bg-rose-100 transition">Xóa sản phẩm</button>
+              <button
+                type="button"
+                onClick={() => {
+                  openEditModal(selectedProduct);
+                  setSelectedProduct(null);
+                }}
+                className="flex-1 min-w-[120px] rounded-xl bg-[#0e704b] px-4 py-3 text-xs font-bold text-white hover:bg-[#0a5c3d] transition shadow-2xs"
+              >
+                Sửa sản phẩm
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleNotifyProduct(selectedProduct.id, selectedProduct.name);
+                  setSelectedProduct(null);
+                }}
+                className="rounded-xl bg-pink-50 border border-pink-100 px-4 py-3 text-xs font-bold text-pink-600 hover:bg-pink-100 transition shadow-2xs"
+              >
+                Thông báo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const prod = selectedProduct;
+                  setSelectedProduct(null);
+                  openDeleteProduct(prod);
+                }}
+                className="rounded-xl bg-rose-50 border border-rose-100 px-4 py-3 text-xs font-bold text-rose-600 hover:bg-rose-100 transition shadow-2xs"
+              >
+                Xóa sản phẩm
+              </button>
             </div>
           </aside>
         </div>,
@@ -665,15 +1159,35 @@ export default function ProductsTab({
 
       {/* Quick Stock-in Modal */}
       {mounted && typeof document !== "undefined" && quickStockTarget && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 overflow-y-auto" role="presentation" onMouseDown={() => !isSubmittingQuickStock && setQuickStockTarget(null)}>
-          <form role="dialog" aria-modal="true" aria-labelledby="quick-stock-title" onSubmit={handleQuickStockSubmit} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl my-auto">
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 overflow-y-auto"
+          role="presentation"
+          onMouseDown={() => !isSubmittingQuickStock && setQuickStockTarget(null)}
+        >
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quick-stock-title"
+            onSubmit={handleQuickStockSubmit}
+            onMouseDown={(event) => event.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl my-auto"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Nạp kho nhanh</p>
-                <h2 id="quick-stock-title" className="mt-1 text-base font-black text-slate-900 line-clamp-1">{quickStockTarget.name}</h2>
-                <p className="mt-0.5 text-xs text-slate-500 font-medium">Hiện có: <b className="text-[#0e704b]">{quickStockTarget.stockAvailable}</b> tồn kho</p>
+                <h2 id="quick-stock-title" className="mt-1 text-base font-black text-slate-900 line-clamp-1">
+                  {quickStockTarget.name}
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-500 font-medium">
+                  Hiện có: <b className="text-[#0e704b]">{quickStockTarget.stockAvailable}</b> tồn kho
+                </p>
               </div>
-              <button type="button" onClick={() => setQuickStockTarget(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Đóng">
+              <button
+                type="button"
+                onClick={() => setQuickStockTarget(null)}
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                aria-label="Đóng"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -712,7 +1226,12 @@ export default function ProductsTab({
             </label>
 
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" disabled={isSubmittingQuickStock} onClick={() => setQuickStockTarget(null)} className="min-h-10 rounded-xl border border-slate-200 px-4 text-xs font-bold text-slate-600 hover:bg-slate-50">
+              <button
+                type="button"
+                disabled={isSubmittingQuickStock}
+                onClick={() => setQuickStockTarget(null)}
+                className="min-h-10 rounded-xl border border-slate-200 px-4 text-xs font-bold text-slate-600 hover:bg-slate-50"
+              >
                 Hủy
               </button>
               <button
@@ -738,11 +1257,20 @@ export default function ProductsTab({
         document.body
       )}
 
-      {/* Side Forms: Create Product & Bulk Import (4 cols) */}
+      {/* Side Forms: Create Product & Bulk Import (12 cols) */}
       <div className="lg:col-span-12 grid grid-cols-1 gap-5 lg:grid-cols-12">
         {/* Form Tạo Sản Phẩm */}
         <div id="create-product-section" className="lg:col-span-7 rounded-[24px] border border-slate-200 bg-white p-5 sm:p-6">
-          <div className="mb-5 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Sản phẩm mới</p><h3 className="mt-1 flex items-center gap-2 text-lg font-black text-slate-900"><Plus className="h-5 w-5 text-[#0e704b]" />Thêm sản phẩm</h3></div><span className="text-xs text-slate-500">Các trường * bắt buộc</span></div>
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Sản phẩm mới</p>
+              <h3 className="mt-1 flex items-center gap-2 text-lg font-black text-slate-900">
+                <Plus className="h-5 w-5 text-[#0e704b]" />
+                <span>Thêm sản phẩm</span>
+              </h3>
+            </div>
+            <span className="text-xs text-slate-500">Các trường * bắt buộc</span>
+          </div>
 
           <form onSubmit={handleCreateProduct} className="space-y-3">
             <div>
@@ -774,7 +1302,7 @@ export default function ProductsTab({
                 />
               </div>
               <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
                   Danh mục
                 </label>
                 <input
@@ -789,45 +1317,26 @@ export default function ProductsTab({
                   {categoriesList.map((c) => (
                     <option key={c.name} value={c.name} />
                   ))}
-                  <option value="AI & Trí tuệ nhân tạo" />
-                  <option value="Giải trí & Streaming" />
-                  <option value="Đồ họa & Sáng tạo" />
-                  <option value="Văn phòng & Công việc" />
-                  <option value="Mạng & Bảo mật" />
-                  <option value="Học tập & Ngoại ngữ" />
-                  <option value="Dịch vụ & Tiện ích khác" />
                 </datalist>
               </div>
             </div>
 
-            {/* Quick category preset chips */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-              <span className="text-[10px] text-slate-400 font-medium">Gợi ý:</span>
-              {["AI & Trí tuệ nhân tạo", "Giải trí & Streaming", "Đồ họa & Sáng tạo", "Văn phòng & Công việc", "Mạng & Bảo mật", "Học tập & Ngoại ngữ"].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setNewProductCategory(preset)}
-                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition border ${
-                    newProductCategory.toLowerCase() === preset.toLowerCase()
-                      ? "bg-[#0e704b] text-white border-[#0e704b]"
-                      : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-[#0e704b]"
-                  }`}
-                >
-                  +{preset}
-                </button>
-              ))}
+            {/* Custom Image Upload Field */}
+            <div>
+              <ProductImageField
+                id="create-product-image"
+                value={newProductImage}
+                onChange={setNewProductImage}
+              />
             </div>
-
-            <ProductImageField id="new-product-image" value={newProductImage} onChange={setNewProductImage} />
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">
                 Mô tả sản phẩm
               </label>
               <textarea
-                rows={4}
-                placeholder="Thông tin chi tiết, định dạng tài khoản hiển thị cho khách..."
+                rows={3}
+                placeholder="Mô tả chi tiết sản phẩm, tính năng, hướng dẫn..."
                 value={newProductDesc}
                 onChange={(e) => setNewProductDesc(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
@@ -836,52 +1345,51 @@ export default function ProductsTab({
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Bảo hành
+                Chính sách bảo hành
               </label>
-              <textarea
-                rows={3}
-                placeholder="Ví dụ: Bảo hành 1 giờ sau thanh toán"
+              <input
+                type="text"
+                placeholder="VD: Bảo hành 1 đổi 1 trong 30 ngày"
                 value={newProductWarranty}
                 onChange={(e) => setNewProductWarranty(e.target.value)}
-                className="w-full rounded-xl border border-violet-200 bg-violet-50/50 px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-violet-400"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
 
-            {/* Nguồn cấp hàng tự động API */}
-            <details className="rounded-2xl border border-slate-200 bg-slate-50"><summary className="cursor-pointer px-4 py-3 text-xs font-bold text-slate-800">Cấp hàng tự động qua API <span className="font-normal text-slate-500">(tuỳ chọn)</span></summary><div className="space-y-3 border-t border-slate-200 p-4">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
-                <Server className="h-3.5 w-3.5 text-[#0e704b]" />
-                <span>Nguồn cấp hàng API</span>
-              </div>
+            <details className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+              <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-600 select-none">
+                Cài đặt nâng cao (Nhà cung cấp / API)
+              </summary>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    Cơ chế cấp hàng
+                  </label>
+                  <select
+                    value={newFulfillmentType}
+                    onChange={(e) => setNewFulfillmentType(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600 font-medium"
+                  >
+                    <option value="HYBRID">Hybrid · ưu tiên kho nội bộ</option>
+                    <option value="MANUAL">Chỉ kho nội bộ</option>
+                    <option value="API">Chỉ API</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Chế độ cấp hàng
-                </label>
-                <select
-                  value={newFulfillmentType}
-                  onChange={(e) => setNewFulfillmentType(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600 font-medium"
-                >
-                  <option value="HYBRID">Hybrid · ưu tiên kho nội bộ</option>
-                  <option value="MANUAL">Chỉ kho nội bộ</option>
-                  <option value="API">Chỉ API</option>
-                </select>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    Mã gói NCC (API Variant ID)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="variant_..."
+                    value={newSupplierVariantId}
+                    onChange={(e) => setNewSupplierVariantId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-emerald-600 font-mono"
+                  />
+                </div>
               </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Mã gói NCC (API Variant ID)
-                </label>
-                <input
-                  type="text"
-                  placeholder="variant_..."
-                  value={newSupplierVariantId}
-                  onChange={(e) => setNewSupplierVariantId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-emerald-600 font-mono"
-                />
-              </div>
-            </div></details>
+            </details>
 
             <button
               type="submit"
@@ -961,4 +1469,3 @@ export default function ProductsTab({
     </div>
   );
 }
-
