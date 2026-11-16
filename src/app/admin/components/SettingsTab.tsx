@@ -54,7 +54,7 @@ export default function SettingsTab() {
       {loading ? <div className="flex items-center gap-2 py-12 text-sm font-semibold text-slate-500"><LoaderCircle className="h-4 w-4 animate-spin" />Đang tải cấu hình…</div> : <>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-xs font-bold uppercase tracking-wide text-slate-600 sm:col-span-2">Tên cửa hàng<input value={settings.SHOP_NAME} onChange={(e) => update("SHOP_NAME", e.target.value)} className={input} maxLength={80} /></label>
-          <label className="text-xs font-bold uppercase tracking-wide text-slate-600">Username bot<input value={settings.BOT_USERNAME} onChange={(e) => update("BOT_USERNAME", e.target.value)} className={input} placeholder="RINQ_bot" maxLength={64} /></label>
+          <label className="text-xs font-bold uppercase tracking-wide text-slate-600">Username bot<input value={settings.BOT_USERNAME} onChange={(e) => update("BOT_USERNAME", e.target.value)} className={input} placeholder="rinqshop_bot" maxLength={64} /></label>
           <label className="text-xs font-bold uppercase tracking-wide text-slate-600">Username hỗ trợ<input value={settings.SUPPORT_USERNAME} onChange={(e) => update("SUPPORT_USERNAME", e.target.value)} className={input} placeholder="rinq_hotro" maxLength={64} /></label>
         </div>
         <div className="my-7 border-t border-slate-100" />

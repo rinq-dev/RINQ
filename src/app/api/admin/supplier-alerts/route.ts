@@ -50,13 +50,17 @@ export async function GET() {
     let roboticError: string | undefined;
     let roboticProducts: any[] = [];
 
-    try {
-      const catalog = await getRoboticCatalog({}, true);
-      roboticConnected = true;
-      roboticBalance = Number(catalog.account?.balanceVnd || 0);
-      roboticProducts = catalog.products || [];
-    } catch (err: any) {
-      roboticError = err?.message || "Không thể kết nối RoboticVN";
+    if (process.env.ROBOTIC_ENABLED !== "false") {
+      try {
+        const catalog = await getRoboticCatalog({}, true);
+        roboticConnected = true;
+        roboticBalance = Number(catalog.account?.balanceVnd || 0);
+        roboticProducts = catalog.products || [];
+      } catch (err: any) {
+        roboticError = err?.message || "Không thể kết nối RoboticVN";
+      }
+    } else {
+      roboticError = "Đã tạm tắt nguồn RoboticVN";
     }
 
     // 2. Kiểm tra ScoopyVN

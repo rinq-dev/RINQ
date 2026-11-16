@@ -15,6 +15,9 @@ export interface RoboticProduct {
 }
 
 function apiKey() {
+  if (process.env.ROBOTIC_ENABLED === "false") {
+    throw new Error("Nguồn RoboticVN đang tạm tắt.");
+  }
   const key = (process.env.ROBOTIC_API_KEY || process.env.SUPPLIER_API_KEY || "").trim();
   if (!key) throw new Error("Thiếu ROBOTIC_API_KEY trong cấu hình máy chủ.");
   return key;

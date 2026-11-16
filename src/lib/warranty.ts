@@ -2,7 +2,7 @@ import { prisma } from "./prisma";
 import { decryptStock } from "./crypto";
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || "8907169582";
+const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || "9146387769";
 
 // Helper: Phân tích thời gian bảo hành hợp lệ từ chuỗi chính sách bảo hành
 export function parseWarrantyDurationMs(warrantyText?: string | null): number {

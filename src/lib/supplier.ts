@@ -37,6 +37,14 @@ let cachedSupplierInfo: { data: SupplierAccountInfo; expiresAt: number } | null 
  * Tra cứu thông tin tài khoản và số dư ví tại RoboticVN (có cache 60s và timeout 3s)
  */
 export async function getSupplierInfo(forceRefresh = false): Promise<SupplierAccountInfo> {
+  if (process.env.ROBOTIC_ENABLED === "false") {
+    return {
+      connected: false,
+      balanceVnd: 0,
+      balanceUsd: 0,
+      error: "Nguồn RoboticVN đang tạm tắt.",
+    };
+  }
   const now = Date.now();
   if (!forceRefresh && cachedSupplierInfo && cachedSupplierInfo.expiresAt > now) {
     return cachedSupplierInfo.data;
@@ -110,6 +118,9 @@ export async function createSupplierOrder(
   variantId: string,
   quantity: number = 1
 ): Promise<{ success: boolean; orderId?: string; error?: string }> {
+  if (process.env.ROBOTIC_ENABLED === "false") {
+    return { success: false, error: "Nguồn RoboticVN đang tạm tắt." };
+  }
   try {
     const apiKey = requireSupplierApiKey();
     const normalizedVariantId = variantId.includes(":")
@@ -352,6 +363,9 @@ export async function fetchSupplierProducts(maxPrice = 40000): Promise<{
   }>;
   error?: string;
 }> {
+  if (process.env.ROBOTIC_ENABLED === "false") {
+    return { success: false, products: [], error: "Nguồn RoboticVN đang tạm tắt." };
+  }
   try {
     const res = await fetch(`${SUPPLIER_BASE_URL}/products?limit=50`, {
       method: "GET",

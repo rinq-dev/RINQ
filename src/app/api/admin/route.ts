@@ -1231,7 +1231,7 @@ async function executeAdminAction(body: any) {
               parse_mode: "HTML",
               reply_markup: {
                 inline_keyboard: [
-                  [{ text: "🛍 Mua hàng ngay", url: "https://t.me/rinq_bot" }],
+                  [{ text: "🛍 Mua hàng ngay", url: "https://t.me/rinqshop_bot" }],
                   [{ text: "💬 Hỗ trợ Admin (@rinq_hotro)", url: "https://t.me/rinq_hotro" }],
                 ],
               },

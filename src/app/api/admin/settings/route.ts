@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       success: true,
       settings: {
         SHOP_NAME: saved.SHOP_NAME || "RINQ SHOP",
-        BOT_USERNAME: saved.BOT_USERNAME || "RINQ_bot",
+        BOT_USERNAME: saved.BOT_USERNAME || "rinqshop_bot",
         SUPPORT_USERNAME: saved.SUPPORT_USERNAME || "rinq_hotro",
         BANK_ID: saved.BANK_ID || process.env.BANK_ID || "ACB",
         BANK_ACCOUNT_NO: saved.BANK_ACCOUNT_NO || process.env.BANK_ACCOUNT_NO || "28753551",
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
           telegram: Boolean(process.env.BOT_TOKEN),
           api5s: Boolean(saved.API5S_ACB_TOKEN || process.env.API5S_ACB_TOKEN),
           sepay: Boolean(process.env.SEPAY_API_KEY),
-          robotic: Boolean(process.env.SUPPLIER_API_KEY),
+          robotic: process.env.ROBOTIC_ENABLED !== "false" && Boolean(process.env.SUPPLIER_API_KEY),
           scoopy: Boolean(process.env.SCOOPY_API_KEY || process.env.SCOOPY_API_BASE_URL),
         },
       },

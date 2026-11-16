@@ -1508,7 +1508,7 @@ export default function AdminPage() {
           </button>
 
           <Link
-            href="https://t.me/RINQ_bot"
+            href="https://t.me/rinqshop_bot"
             target="_blank"
             rel="noreferrer"
             title="Mở Telegram Bot"

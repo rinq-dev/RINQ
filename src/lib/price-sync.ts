@@ -72,6 +72,9 @@ export async function syncRoboticPrices(options: {
   notifyAdmin?: boolean;
   broadcastCustomersOnDiscount?: boolean;
 } = {}): Promise<SyncPricesResult> {
+  if (process.env.ROBOTIC_ENABLED === "false") {
+    return { success: true, totalChecked: 0, updatedCount: 0, changes: [] };
+  }
   const { notifyAdmin = true, broadcastCustomersOnDiscount = true } = options;
 
   try {

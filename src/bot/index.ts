@@ -35,7 +35,7 @@ if (!BOT_TOKEN) {
   process.exit(1);
 }
 
-const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || "8907169582";
+const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || "9146387769";
 const SUPPORT_USERNAME = (process.env.SUPPORT_USERNAME || "rinq_hotro").replace(/^@/, "");
 
 const bot = new Bot(BOT_TOKEN);
@@ -3092,8 +3092,8 @@ bot.callbackQuery("menu_wallet", async (ctx) => {
 // 19. Giao diện chương trình Affiliate / Giới thiệu nhận hoa hồng
 async function handleShowAffiliate(ctx: any) {
   const telegramId = String(ctx.from?.id);
-  const botInfo = await bot.api.getMe().catch(() => ({ username: "RINQ_bot" }));
-  const botUsername = botInfo.username || "RINQ_bot";
+  const botInfo = await bot.api.getMe().catch(() => ({ username: "rinqshop_bot" }));
+  const botUsername = botInfo.username || "rinqshop_bot";
   const refLink = `https://t.me/${botUsername}?start=ref_${telegramId}`;
 
   const stats = await getAffiliateStats(telegramId);

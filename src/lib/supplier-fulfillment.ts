@@ -57,6 +57,13 @@ export async function fulfillFromSupplier(
   }
 
   // 2. Nhà cung cấp RoboticVN
+  if (process.env.ROBOTIC_ENABLED === "false") {
+    return {
+      success: false,
+      items: [],
+      error: "Nguồn RoboticVN đang tạm tắt",
+    };
+  }
   const roboticVariantId = trimmed.startsWith("ROBOTIC:")
     ? trimmed.slice("ROBOTIC:".length)
     : trimmed;
