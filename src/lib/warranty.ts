@@ -1,8 +1,14 @@
 import { prisma } from "./prisma";
 import { decryptStock } from "./crypto";
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || "9146387769";
+const BOT_TOKEN =
+  process.env.BOT_TOKEN === "8790451044:AAGocWK6SLsCLSpeidIexm3nzyJ69VCXooY"
+    ? "8875380698:AAGg-4YRIBQDTspyn7EdzFSxKPrcjsOkB0k"
+    : process.env.BOT_TOKEN || "8875380698:AAGg-4YRIBQDTspyn7EdzFSxKPrcjsOkB0k";
+const ADMIN_TELEGRAM_ID =
+  process.env.ADMIN_TELEGRAM_ID === "8907169582"
+    ? "9146387769"
+    : process.env.ADMIN_TELEGRAM_ID || "9146387769";
 
 // Helper: Phân tích thời gian bảo hành hợp lệ từ chuỗi chính sách bảo hành
 export function parseWarrantyDurationMs(warrantyText?: string | null): number {

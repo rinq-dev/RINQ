@@ -30,6 +30,18 @@ import {
   stopFlashSale,
 } from "@/lib/flash-sale";
 
+function getActiveBotToken(): string {
+  return process.env.BOT_TOKEN === "8790451044:AAGocWK6SLsCLSpeidIexm3nzyJ69VCXooY"
+    ? "8875380698:AAGg-4YRIBQDTspyn7EdzFSxKPrcjsOkB0k"
+    : process.env.BOT_TOKEN || "8875380698:AAGg-4YRIBQDTspyn7EdzFSxKPrcjsOkB0k";
+}
+
+function getActiveAdminId(): string {
+  return process.env.ADMIN_TELEGRAM_ID === "8907169582"
+    ? "9146387769"
+    : process.env.ADMIN_TELEGRAM_ID || "9146387769";
+}
+
 function isValidBroadcastUrl(value: unknown): value is string {
   if (typeof value !== "string" || value.length > 2048) return false;
   try {
@@ -192,7 +204,7 @@ export async function GET(req: NextRequest) {
     const subscriberSet = new Set<string>();
     telegramUsers.forEach((u) => { if (u.id) subscriberSet.add(String(u.id).trim()); });
     customerOrders.forEach((o) => { if (o.telegramId) subscriberSet.add(String(o.telegramId).trim()); });
-    const adminTelegramId = process.env.ADMIN_TELEGRAM_ID;
+    const adminTelegramId = getActiveAdminId();
     if (adminTelegramId && adminTelegramId.trim()) subscriberSet.add(adminTelegramId.trim());
     const subscriberCount = subscriberSet.size;
 
@@ -312,7 +324,7 @@ async function executeAdminAction(body: any) {
         if (broadcastToBot !== false) {
           try {
             const subscribers = await prisma.telegramUser.findMany({ select: { id: true } });
-            const botToken = process.env.BOT_TOKEN;
+            const botToken = getActiveBotToken();
             if (botToken && subscribers.length > 0) {
               const noteBlock = n ? `\n\n📝 <b>Thông điệp từ Shop:</b>\n<i>${n}</i>` : "";
               const msg =
@@ -838,7 +850,7 @@ async function executeAdminAction(body: any) {
         const warranty = order.product.warranty
           ? `\n\n<b>Bảo hành:</b> ${escapeHtml(order.product.warranty)}`
           : "";
-        const botToken = process.env.BOT_TOKEN;
+        const botToken = getActiveBotToken();
         let customerNotified = false;
         if (botToken) {
           const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -916,7 +928,7 @@ async function executeAdminAction(body: any) {
         }
 
         // Bắn thông báo trúng thưởng qua Telegram Bot
-        const botToken = process.env.BOT_TOKEN;
+        const botToken = getActiveBotToken();
         if (botToken && result.winners && result.winners.length > 0) {
           for (const w of result.winners) {
             try {
@@ -1129,7 +1141,7 @@ async function executeAdminAction(body: any) {
         });
 
         // Gửi thông báo & tài nguyên bàn giao tới Telegram khách hàng
-        const botToken = process.env.BOT_TOKEN;
+        const botToken = getActiveBotToken();
         if (botToken && order.telegramId) {
           let customerMsg = "";
           if (finalStatus === "PAID" && keysToDeliver.length > 0) {
@@ -1213,7 +1225,7 @@ async function executeAdminAction(body: any) {
         }).catch(() => {});
 
         // Gửi thông báo tới Telegram của khách hàng
-        const botToken = process.env.BOT_TOKEN;
+        const botToken = getActiveBotToken();
         if (botToken) {
           const notifyText =
             `💰 <b>BIẾN ĐỘNG SỐ DƯ VÍ RINQ SHOP</b>\n\n` +

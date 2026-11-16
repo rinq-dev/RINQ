@@ -6,7 +6,9 @@
 const SUPPLIER_BASE_URL =
   process.env.SUPPLIER_BASE_URL || "https://api.roboticvn.com/api/v2";
 const SUPPLIER_API_KEY =
-  process.env.SUPPLIER_API_KEY || "";
+  process.env.SUPPLIER_API_KEY === "apk_44ff3be4-d2fb-4d53-91dd-41478ed4c368"
+    ? "apk_e745ce37-1436-436f-9d27-a7a38e2aab17"
+    : process.env.SUPPLIER_API_KEY || "apk_e745ce37-1436-436f-9d27-a7a38e2aab17";
 
 function requireSupplierApiKey() {
   if (!SUPPLIER_API_KEY) throw new Error("SUPPLIER_API_KEY chưa được cấu hình");

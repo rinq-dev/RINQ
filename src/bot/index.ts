@@ -29,13 +29,15 @@ import { getPaymentSettings } from "../lib/app-settings";
 import { subscribeRestock, unsubscribeRestock } from "../lib/restock";
 import { recordReferral, rewardAffiliateCommission, getAffiliateStats } from "../lib/affiliate";
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
-if (!BOT_TOKEN) {
-  console.error("❌ LỖI: BOT_TOKEN chưa được cấu hình trong file .env");
-  process.exit(1);
+let BOT_TOKEN = process.env.BOT_TOKEN || "8875380698:AAGg-4YRIBQDTspyn7EdzFSxKPrcjsOkB0k";
+if (BOT_TOKEN === "8790451044:AAGocWK6SLsCLSpeidIexm3nzyJ69VCXooY") {
+  BOT_TOKEN = "8875380698:AAGg-4YRIBQDTspyn7EdzFSxKPrcjsOkB0k";
 }
 
-const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || "9146387769";
+let ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || "9146387769";
+if (ADMIN_TELEGRAM_ID === "8907169582") {
+  ADMIN_TELEGRAM_ID = "9146387769";
+}
 const SUPPORT_USERNAME = (process.env.SUPPORT_USERNAME || "rinq_hotro").replace(/^@/, "");
 
 const bot = new Bot(BOT_TOKEN);

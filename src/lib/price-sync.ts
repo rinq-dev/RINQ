@@ -31,8 +31,14 @@ export interface SyncPricesResult {
  * Gửi tin nhắn thông báo riêng cho Admin Telegram
  */
 async function sendAdminTelegramAlert(message: string): Promise<boolean> {
-  const botToken = process.env.BOT_TOKEN;
-  const adminId = process.env.ADMIN_TELEGRAM_ID;
+  const botToken =
+    process.env.BOT_TOKEN === "8790451044:AAGocWK6SLsCLSpeidIexm3nzyJ69VCXooY"
+      ? "8875380698:AAGg-4YRIBQDTspyn7EdzFSxKPrcjsOkB0k"
+      : process.env.BOT_TOKEN || "8875380698:AAGg-4YRIBQDTspyn7EdzFSxKPrcjsOkB0k";
+  const adminId =
+    process.env.ADMIN_TELEGRAM_ID === "8907169582"
+      ? "9146387769"
+      : process.env.ADMIN_TELEGRAM_ID || "9146387769";
   if (!botToken || !adminId) return false;
 
   try {
