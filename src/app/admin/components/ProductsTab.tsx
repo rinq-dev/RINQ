@@ -27,6 +27,7 @@ import {
   Wand2,
   ExternalLink,
   Check,
+  ShieldCheck,
 } from "lucide-react";
 import { Product } from "../types";
 import ProductImageField from "./ProductImageField";
@@ -154,8 +155,10 @@ export default function ProductsTab({
   const [quickNotify, setQuickNotify] = useState(true);
   const [isSubmittingQuickStock, setIsSubmittingQuickStock] = useState(false);
   const [isCreateAiRewriting, setIsCreateAiRewriting] = useState(false);
+  const [isCreateAiWarrantyLoading, setIsCreateAiWarrantyLoading] = useState(false);
   const [createAiTone, setCreateAiTone] = useState<"telegram" | "concise" | "sales" | "tech">("telegram");
   const [createAiNotice, setCreateAiNotice] = useState<{ message: string; isError?: boolean } | null>(null);
+  const [createWarrantyNotice, setCreateWarrantyNotice] = useState<{ message: string; isError?: boolean } | null>(null);
 
   const createPredictedGuide = predictGuideUrl({
     name: newProductName,
@@ -194,6 +197,41 @@ export default function ProductsTab({
       setCreateAiNotice({ message: err?.message || "Lỗi AI", isError: true });
     } finally {
       setIsCreateAiRewriting(false);
+    }
+  };
+
+  const handleCreateAiWarranty = async () => {
+    setIsCreateAiWarrantyLoading(true);
+    setCreateWarrantyNotice(null);
+    try {
+      const res = await fetch("/api/ai/rewrite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: newProductWarranty.trim() || newProductDesc.trim() || newProductName,
+          productName: newProductName,
+          category: newProductCategory,
+          type: "warranty",
+          tone: createAiTone,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.rewrittenText) {
+        setNewProductWarranty(data.rewrittenText);
+        const keyInfo =
+          data.totalKeys > 1
+            ? `Đã đổi sang Key #${data.keyIndexUsed}/${data.totalKeys} (${data.keyMasked})`
+            : `Key #${data.keyIndexUsed || 1}`;
+        setCreateWarrantyNotice({
+          message: `Đã soạn bảo hành thành công [${keyInfo}]${data.proxyUsed ? " qua Proxy" : ""}`,
+        });
+      } else {
+        setCreateWarrantyNotice({ message: data.error || "Không thể soạn chính sách bảo hành", isError: true });
+      }
+    } catch (err: any) {
+      setCreateWarrantyNotice({ message: err?.message || "Lỗi AI", isError: true });
+    } finally {
+      setIsCreateAiWarrantyLoading(false);
     }
   };
 
@@ -1501,16 +1539,76 @@ export default function ProductsTab({
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Chính sách bảo hành
-              </label>
-              <input
-                type="text"
-                placeholder="VD: Bảo hành 1 đổi 1 trong 30 ngày"
+            <div className="space-y-1.5 p-2.5 rounded-xl bg-violet-50/40 border border-violet-100">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-violet-600" />
+                  <span>Chính sách bảo hành</span>
+                </label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={isCreateAiWarrantyLoading}
+                    onClick={handleCreateAiWarranty}
+                    className="inline-flex items-center gap-1 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-2 py-0.5 text-[10px] font-bold transition shadow-2xs cursor-pointer active:scale-95"
+                  >
+                    {isCreateAiWarrantyLoading ? (
+                      <>
+                        <LoaderCircle className="h-3 w-3 animate-spin" />
+                        <span>Đang viết...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-3 w-3" />
+                        <span>AI Viết bảo hành</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Mau nhanh */}
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="text-[10px] text-slate-400">Mẫu:</span>
+                <button
+                  type="button"
+                  onClick={() => setNewProductWarranty("• Bảo hành 1 đổi 1 trong 1 giờ đầu nếu không kích hoạt hoặc lỗi sản phẩm.\n• Hỗ trợ kỹ thuật nhanh qua Admin.")}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-white text-slate-600 border border-slate-200 hover:bg-violet-50 hover:text-violet-700 cursor-pointer"
+                >
+                  1 đổi 1 (1h)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewProductWarranty("• Bảo hành toàn bộ thời gian sử dụng đối với lỗi do key hoặc server nguồn.\n• Đổi mới hoặc hoàn tiền tương ứng.")}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-white text-slate-600 border border-slate-200 hover:bg-violet-50 hover:text-violet-700 cursor-pointer"
+                >
+                  Lỗi server
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewProductWarranty("• Bảo hành trọn gói suốt thời hạn đăng ký dịch vụ.\n• Không bảo hành nếu tự ý thay đổi thông tin/mật khẩu.")}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-white text-slate-600 border border-slate-200 hover:bg-violet-50 hover:text-violet-700 cursor-pointer"
+                >
+                  Theo gói
+                </button>
+              </div>
+
+              {createWarrantyNotice && (
+                <div
+                  className={`text-[10px] font-medium px-2 py-0.5 rounded-lg flex items-center gap-1 ${
+                    createWarrantyNotice.isError ? "bg-rose-50 text-rose-700" : "bg-violet-100 text-violet-900"
+                  }`}
+                >
+                  <span>{createWarrantyNotice.message}</span>
+                </div>
+              )}
+
+              <textarea
+                rows={2}
+                placeholder="VD: Bảo hành 1 đổi 1 trong 30 ngày..."
                 value={newProductWarranty}
                 onChange={(e) => setNewProductWarranty(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-violet-500"
               />
             </div>
 

@@ -21,6 +21,7 @@ import {
   LoaderCircle,
   BookOpen,
   Check,
+  ShieldCheck,
 } from "lucide-react";
 import { Product } from "../types";
 import ProductImageField from "./ProductImageField";
@@ -131,8 +132,10 @@ export default function EditProductModal({
   const [rightTab, setRightTab] = useState<"edit" | "preview">("edit");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isAiRewriting, setIsAiRewriting] = useState(false);
+  const [isAiWarrantyLoading, setIsAiWarrantyLoading] = useState(false);
   const [aiTone, setAiTone] = useState<"telegram" | "concise" | "sales" | "tech">("telegram");
   const [aiStatus, setAiStatus] = useState<{ message: string; isError?: boolean } | null>(null);
+  const [warrantyAiNotice, setWarrantyAiNotice] = useState<{ message: string; isError?: boolean } | null>(null);
 
   const predictedGuide = predictGuideUrl({
     name: editName,
@@ -178,6 +181,45 @@ export default function EditProductModal({
       setAiStatus({ message: err?.message || "Lỗi kết nối AI", isError: true });
     } finally {
       setIsAiRewriting(false);
+    }
+  };
+
+  const handleAiWarranty = async () => {
+    setIsAiWarrantyLoading(true);
+    setWarrantyAiNotice(null);
+
+    const basePrompt = editWarranty.trim() || editDesc.trim() || editName;
+
+    try {
+      const res = await fetch("/api/ai/rewrite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: basePrompt,
+          productName: editName,
+          category: editCategory,
+          type: "warranty",
+          tone: aiTone,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.rewrittenText) {
+        setEditWarranty(data.rewrittenText);
+        const keyInfo =
+          data.totalKeys > 1
+            ? `Đã đổi sang Key #${data.keyIndexUsed}/${data.totalKeys} (${data.keyMasked})`
+            : `Key #${data.keyIndexUsed || 1}`;
+        setWarrantyAiNotice({
+          message: `Đã soạn bảo hành thành công [${keyInfo}]${data.proxyUsed ? " qua Proxy" : ""}`,
+        });
+      } else {
+        setWarrantyAiNotice({ message: data.error || "Không thể soạn chính sách bảo hành", isError: true });
+      }
+    } catch (err: any) {
+      setWarrantyAiNotice({ message: err?.message || "Lỗi kết nối AI", isError: true });
+    } finally {
+      setIsAiWarrantyLoading(false);
     }
   };
 
@@ -639,24 +681,46 @@ export default function EditProductModal({
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          disabled={isAiRewriting || !editDesc.trim()}
-                          onClick={handleAiRewrite}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-[#0e704b] hover:bg-[#0a5c3d] disabled:opacity-50 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs active:scale-95 cursor-pointer"
-                        >
-                          {isAiRewriting ? (
-                            <>
-                              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-                              <span>Đang viết lại...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Wand2 className="h-3.5 w-3.5" />
-                              <span>AI Viết lại ngay</span>
-                            </>
-                          )}
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={isAiRewriting || !editDesc.trim()}
+                            onClick={handleAiRewrite}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-[#0e704b] hover:bg-[#0a5c3d] disabled:opacity-50 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs active:scale-95 cursor-pointer"
+                          >
+                            {isAiRewriting ? (
+                              <>
+                                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                                <span>Đang viết lại...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="h-3.5 w-3.5" />
+                                <span>AI Viết lại ngay</span>
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={isAiWarrantyLoading}
+                            onClick={handleAiWarranty}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs active:scale-95 cursor-pointer"
+                            title="AI tự động soạn chính sách bảo hành"
+                          >
+                            {isAiWarrantyLoading ? (
+                              <>
+                                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                                <span>Đang soạn BH...</span>
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheck className="h-3.5 w-3.5" />
+                                <span>AI Viết bảo hành</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
 
                       {/* Tone selector */}
@@ -849,17 +913,80 @@ export default function EditProductModal({
                     </div>
 
                     {/* Chinh sach bao hanh */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                        <span>Chinh sach bao hanh</span>
-                        <span className="text-[10px] text-slate-600 font-normal">Gui kem trong tin nhan sau thanh toan</span>
-                      </label>
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-violet-50/70 via-purple-50/40 to-slate-50 border border-violet-200/90 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <label className="text-xs font-bold text-violet-950 flex items-center gap-1.5">
+                          <ShieldCheck className="h-4 w-4 text-violet-600" />
+                          <span>Chính sách bảo hành &amp; Cam kết</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-violet-700 font-medium hidden sm:inline">Gửi kèm tin nhắn sau mua</span>
+                          <button
+                            type="button"
+                            disabled={isAiWarrantyLoading}
+                            onClick={handleAiWarranty}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-[11px] font-bold transition shadow-2xs cursor-pointer active:scale-95"
+                          >
+                            {isAiWarrantyLoading ? (
+                              <>
+                                <LoaderCircle className="h-3 w-3 animate-spin" />
+                                <span>Đang soạn...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="h-3 w-3" />
+                                <span>AI Viết bảo hành</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Mau nhanh */}
+                      <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                        <span className="text-[10px] font-bold text-slate-500 mr-1">Mẫu nhanh:</span>
+                        <button
+                          type="button"
+                          onClick={() => setEditWarranty("• Bảo hành 1 đổi 1 trong 1 giờ đầu kể từ khi nhận đơn nếu không kích hoạt hoặc lỗi sản phẩm.\n• Hỗ trợ kỹ thuật nhanh qua Admin.")}
+                          className="px-2 py-0.5 rounded-lg text-[10px] font-bold transition border bg-white text-slate-600 border-violet-200 hover:bg-violet-100 hover:text-violet-800 cursor-pointer"
+                        >
+                          + 1 đổi 1 trong 1h
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditWarranty("• Bảo hành toàn bộ thời gian sử dụng đối với lỗi từ nhà cung cấp hoặc server nguồn.\n• Đổi mới hoặc hoàn tiền tương ứng thời gian chưa dùng.")}
+                          className="px-2 py-0.5 rounded-lg text-[10px] font-bold transition border bg-white text-slate-600 border-violet-200 hover:bg-violet-100 hover:text-violet-800 cursor-pointer"
+                        >
+                          + Lỗi server nguồn
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditWarranty("• Bảo hành suốt thời hạn gói dịch vụ.\n• Không bảo hành nếu tự ý đổi email/mật khẩu hoặc vi phạm quy định dịch vụ.")}
+                          className="px-2 py-0.5 rounded-lg text-[10px] font-bold transition border bg-white text-slate-600 border-violet-200 hover:bg-violet-100 hover:text-violet-800 cursor-pointer"
+                        >
+                          + Suốt hạn gói
+                        </button>
+                      </div>
+
+                      {warrantyAiNotice && (
+                        <div
+                          className={`text-[11px] font-medium px-2.5 py-1 rounded-xl flex items-center gap-1.5 ${
+                            warrantyAiNotice.isError
+                              ? "bg-rose-50 text-rose-700 border border-rose-200"
+                              : "bg-violet-100/70 text-violet-900 border border-violet-200"
+                          }`}
+                        >
+                          {!warrantyAiNotice.isError && <Check className="h-3.5 w-3.5 text-violet-700 shrink-0" />}
+                          <span>{warrantyAiNotice.message}</span>
+                        </div>
+                      )}
+
                       <textarea
                         rows={3}
                         value={editWarranty}
                         onChange={(e) => setEditWarranty(e.target.value)}
-                        placeholder="BAO HANH 1 GIO TU THANH TOAN THANH CONG. Han gui ho tro: trong 1 gio ke tu luc don duoc xac nhan."
-                        className="w-full rounded-xl border border-violet-200 bg-violet-50/50 p-2.5 text-xs text-slate-900 focus:outline-none focus:border-violet-400 focus:bg-white"
+                        placeholder="BAO HANH 1 GIO TU THANH TOAN THANH CONG. Han gui ho tro: trong 1 gio ke tu luc don duoc xac nhan..."
+                        className="w-full rounded-xl border border-violet-200 bg-white p-2.5 text-xs text-slate-900 focus:outline-none focus:border-violet-500 shadow-inner"
                       />
                     </div>
                   </div>

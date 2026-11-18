@@ -5,6 +5,7 @@ export interface RewriteOptions {
   text: string;
   productName?: string;
   category?: string;
+  type?: "description" | "warranty";
   tone?: "telegram" | "concise" | "sales" | "tech";
 }
 
@@ -112,7 +113,20 @@ function getNextProxy(proxies: string[]): string | null {
   return proxies[index];
 }
 
-function buildSystemInstruction(tone: string = "telegram"): string {
+function buildSystemInstruction(tone: string = "telegram", type: "description" | "warranty" = "description"): string {
+  if (type === "warranty") {
+    return `Bạn là chuyên gia soạn thảo chính sách bảo hành và cam kết dịch vụ cho hệ thống RINQ SHOP.
+Nhiệm vụ: Viết chính sách bảo hành ngắn gọn, rõ ràng, minh bạch cho sản phẩm tài nguyên số (API key, tài khoản, hotmail OAuth, phần mềm...).
+Quy tắc quan trọng:
+1. TUYỆT ĐỐI KHÔNG dùng emoji trang trí (không 🚀, không ✨, không 🛒, v.v.).
+2. Dùng tiếng Việt chuẩn mực, có dấu chuẩn xác 100%, gãy gọn.
+3. Nội dung bao gồm 2 đến 4 ý cốt lõi:
+   - Phạm vi bảo hành (lỗi kết nối, key không hoạt động, lỗi server nguồn).
+   - Thời hạn bảo hành (VD: trong 1 giờ đầu, 24 giờ, 3 ngày, hoặc suốt hạn sử dụng của gói).
+   - Điều kiện từ chối (tự ý thay đổi thông tin/mật khẩu, dùng sai mục đích).
+4. Chỉ trả về nội dung chính sách bảo hành dạng các gạch đầu dòng (-) hoặc đoạn ngắn, KHÔNG thêm lời chào hay giải thích ngoài lề.`;
+  }
+
   const baseInstruction = `Bạn là chuyên gia biên tập nội dung số 1 cho hệ thống bán lẻ tài nguyên công nghệ "RINQ SHOP".
 Nhiệm vụ: Viết lại hoặc nâng cấp mô tả sản phẩm (API key, tài khoản, dịch vụ AI, email OAuth, VPN, bản quyền...) sao cho chuyên nghiệp, rõ ràng, minh bạch và thu hút khách hàng.
 Quy tắc quan trọng:
@@ -147,6 +161,10 @@ Phong cách Telegram Bot:
  * Smart local fallback formatter when no AI API keys are configured yet
  */
 function localFormatFallback(options: RewriteOptions): string {
+  if (options.type === "warranty") {
+    return `• Bảo hành 1 đổi 1 nếu lỗi từ nhà cung cấp hoặc server nguồn trong thời hạn sử dụng.\n• Hỗ trợ kỹ thuật 24/7 trực tiếp qua admin.\n• Không bảo hành trường hợp tự ý thay đổi thông tin/mật khẩu hoặc vi phạm quy định dịch vụ.`;
+  }
+
   const { text, productName, tone } = options;
   const lines = text
     .split("\n")
@@ -191,10 +209,15 @@ export async function rewriteProductContent(options: RewriteOptions): Promise<Re
     };
   }
 
-  const systemInstruction = buildSystemInstruction(options.tone);
-  const prompt = `Tên sản phẩm: ${options.productName || "Sản phẩm công nghệ"}\nDanh mục: ${
-    options.category || "Công nghệ"
-  }\nNội dung gốc cần viết lại:\n"""\n${options.text.trim()}\n"""\n\nHãy viết lại mô tả sản phẩm trên theo đúng phong cách và quy tắc đã hướng dẫn. Chỉ trả về nội dung hoàn chỉnh, không thêm lời chào, không thêm giải thích ngoài lề.`;
+  const systemInstruction = buildSystemInstruction(options.tone, options.type);
+  const prompt =
+    options.type === "warranty"
+      ? `Tên sản phẩm: ${options.productName || "Tài nguyên công nghệ"}\nDanh mục: ${
+          options.category || "Công nghệ"
+        }\nThông tin bảo hành hiện tại hoặc ghi chú:\n"""\n${options.text.trim()}\n"""\n\nHãy soạn thảo một chính sách bảo hành ngắn gọn (2-4 gạch đầu dòng), rõ ràng, minh bạch cho sản phẩm này.`
+      : `Tên sản phẩm: ${options.productName || "Sản phẩm công nghệ"}\nDanh mục: ${
+          options.category || "Công nghệ"
+        }\nNội dung gốc cần viết lại:\n"""\n${options.text.trim()}\n"""\n\nHãy viết lại mô tả sản phẩm trên theo đúng phong cách và quy tắc đã hướng dẫn. Chỉ trả về nội dung hoàn chỉnh, không thêm lời chào, không thêm giải thích ngoài lề.`;
 
   let lastError: Error | null = null;
   const maxAttempts = Math.min(keys.length * 2, 6);

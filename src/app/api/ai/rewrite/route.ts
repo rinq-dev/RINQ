@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { text, productName, category, tone } = body;
+    const { text, productName, category, tone, type } = body;
 
     if (!text || typeof text !== "string" || !text.trim()) {
       return NextResponse.json({ error: "Vui lòng nhập nội dung cần viết lại" }, { status: 400 });
@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
       productName: productName ? String(productName).trim() : undefined,
       category: category ? String(category).trim() : undefined,
       tone: tone || "telegram",
+      type: type === "warranty" ? "warranty" : "description",
     });
 
     return NextResponse.json({
