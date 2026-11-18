@@ -33,6 +33,7 @@ import ProductImageField from "./ProductImageField";
 import ScoopyImportPanel from "./ScoopyImportPanel";
 import RoboticImportPanel from "./RoboticImportPanel";
 import SupplierAlertBanner from "./SupplierAlertBanner";
+import { GUIDES_CATALOG, predictGuideUrl } from "@/lib/guides-catalog";
 
 interface ProductsTabProps {
   products: Product[];
@@ -155,6 +156,13 @@ export default function ProductsTab({
   const [isCreateAiRewriting, setIsCreateAiRewriting] = useState(false);
   const [createAiTone, setCreateAiTone] = useState<"telegram" | "concise" | "sales" | "tech">("telegram");
   const [createAiNotice, setCreateAiNotice] = useState<{ message: string; isError?: boolean } | null>(null);
+
+  const createPredictedGuide = predictGuideUrl({
+    name: newProductName,
+    description: newProductDesc,
+    category: newProductCategory,
+    supplierVariantId: newSupplierVariantId,
+  });
 
   const handleCreateAiRewrite = async () => {
     if (!newProductDesc.trim()) {
@@ -1506,26 +1514,70 @@ export default function ProductsTab({
               />
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                   <BookOpen className="h-3.5 w-3.5 text-[#0e704b]" />
                   <span>Đường link hướng dẫn sử dụng riêng (URL / Guide)</span>
                 </label>
                 {newProductGuideUrl && (
                   <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
-                    Đã cấu hình link
+                    Đã chọn link
                   </span>
                 )}
               </div>
-              <input
-                type="text"
-                placeholder="VD: /guides/doi-tac-2-claude hoặc https://..."
-                value={newProductGuideUrl}
-                onChange={(e) => setNewProductGuideUrl(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-emerald-600"
-              />
-              <p className="text-[10px] text-slate-500 mt-1">
+
+              {/* AI Prediction for new product */}
+              {createPredictedGuide.match && newProductGuideUrl !== createPredictedGuide.match.url && (
+                <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-emerald-300 shadow-2xs text-xs">
+                  <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                    <Sparkles className="h-3.5 w-3.5 text-[#0e704b] shrink-0" />
+                    <div className="truncate text-[11px]">
+                      <span className="font-extrabold text-[#0e704b]">AI dự đoán:</span>{" "}
+                      <span className="font-semibold text-slate-800">{createPredictedGuide.match.shortTitle}</span>
+                      <span className="text-[10px] text-slate-500 ml-1">({createPredictedGuide.reason})</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNewProductGuideUrl(createPredictedGuide.match!.url)}
+                    className="px-2.5 py-1 rounded-lg bg-[#0e704b] hover:bg-[#0a5c3d] text-white text-[10px] font-bold shrink-0 transition active:scale-95 shadow-2xs cursor-pointer"
+                    title="Bấm để áp dụng link này"
+                  >
+                    Áp dụng link
+                  </button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5">
+                <div className="sm:col-span-7">
+                  <input
+                    type="text"
+                    placeholder="VD: /guides/doi-tac-2-claude hoặc https://..."
+                    value={newProductGuideUrl}
+                    onChange={(e) => setNewProductGuideUrl(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                </div>
+                <div className="sm:col-span-5">
+                  <select
+                    value={newProductGuideUrl}
+                    onChange={(e) => {
+                      if (e.target.value) setNewProductGuideUrl(e.target.value);
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-[11px] text-slate-700 font-medium focus:outline-none focus:border-emerald-600"
+                  >
+                    <option value="">-- Chọn bài có sẵn ({GUIDES_CATALOG.length} bài) --</option>
+                    {GUIDES_CATALOG.map((g) => (
+                      <option key={g.slug} value={g.url}>
+                        [{g.category}] {g.shortTitle}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <p className="text-[10px] text-slate-500">
                 Đường link này sẽ hiển thị thành nút bấm riêng <b>"📚 Xem hướng dẫn sử dụng"</b> trên Bot Telegram và Web, thay thế việc nhét link vào text mô tả.
               </p>
             </div>

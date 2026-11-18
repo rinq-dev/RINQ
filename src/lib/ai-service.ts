@@ -123,7 +123,8 @@ Quy tắc quan trọng:
    - Thông tin tổng quan & Điểm nổi bật
    - Bạn nhận được (Chi tiết gói / Quota / Thời hạn)
    - Lưu ý khi sử dụng (nếu có)
-   - Chính sách bảo hành & Hỗ trợ`;
+   - Chính sách bảo hành & Hỗ trợ
+5. TUYỆT ĐỐI KHÔNG tự chèn đường dẫn "Hướng dẫn: /guides/..." hay link website vào trong bài mô tả vì hệ thống đã có nút xem hướng dẫn riêng biệt.`;
 
   switch (tone) {
     case "concise":

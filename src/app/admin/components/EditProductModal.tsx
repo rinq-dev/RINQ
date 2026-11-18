@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Product } from "../types";
 import ProductImageField from "./ProductImageField";
+import { GUIDES_CATALOG, predictGuideUrl } from "@/lib/guides-catalog";
 
 interface EditProductModalProps {
   editingProduct: Product | null;
@@ -132,6 +133,13 @@ export default function EditProductModal({
   const [isAiRewriting, setIsAiRewriting] = useState(false);
   const [aiTone, setAiTone] = useState<"telegram" | "concise" | "sales" | "tech">("telegram");
   const [aiStatus, setAiStatus] = useState<{ message: string; isError?: boolean } | null>(null);
+
+  const predictedGuide = predictGuideUrl({
+    name: editName,
+    description: editDesc,
+    category: editCategory,
+    supplierVariantId: editSupplierVariantId,
+  });
 
   if (!editingProduct) return null;
 
@@ -676,7 +684,7 @@ export default function EditProductModal({
                       </div>
 
                       {/* O nhap link huong dan su dung rieng */}
-                      <div className="pt-2 border-t border-emerald-200/70 mt-1 space-y-1">
+                      <div className="pt-2 border-t border-emerald-200/70 mt-1 space-y-2">
                         <div className="flex items-center justify-between">
                           <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
                             <BookOpen className="h-3.5 w-3.5 text-[#0e704b]" />
@@ -698,13 +706,58 @@ export default function EditProductModal({
                             </a>
                           )}
                         </div>
-                        <input
-                          type="text"
-                          value={editGuideUrl}
-                          onChange={(e) => setEditGuideUrl(e.target.value)}
-                          placeholder="VD: /guides/doi-tac-2-claude hoặc https://..."
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-200 shadow-2xs"
-                        />
+
+                        {/* AI Prediction & Suggestion Banner */}
+                        {predictedGuide.match && editGuideUrl !== predictedGuide.match.url && (
+                          <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-emerald-300 shadow-2xs text-xs">
+                            <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                              <Sparkles className="h-3.5 w-3.5 text-[#0e704b] shrink-0" />
+                              <div className="truncate text-[11px]">
+                                <span className="font-extrabold text-[#0e704b]">AI dự đoán:</span>{" "}
+                                <span className="font-semibold text-slate-800">{predictedGuide.match.shortTitle}</span>
+                                <span className="text-[10px] text-slate-500 ml-1">({predictedGuide.reason})</span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setEditGuideUrl(predictedGuide.match!.url)}
+                              className="px-2.5 py-1 rounded-lg bg-[#0e704b] hover:bg-[#0a5c3d] text-white text-[10px] font-bold shrink-0 transition active:scale-95 shadow-2xs cursor-pointer"
+                              title="Bấm để duyệt và áp dụng link này"
+                            >
+                              Áp dụng link
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Input + Dropdown selector */}
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5">
+                          <div className="sm:col-span-7">
+                            <input
+                              type="text"
+                              value={editGuideUrl}
+                              onChange={(e) => setEditGuideUrl(e.target.value)}
+                              placeholder="VD: /guides/doi-tac-2-claude hoặc https://..."
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-200 shadow-2xs"
+                            />
+                          </div>
+                          <div className="sm:col-span-5">
+                            <select
+                              value={editGuideUrl}
+                              onChange={(e) => {
+                                if (e.target.value) setEditGuideUrl(e.target.value);
+                              }}
+                              className="w-full rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-[11px] text-slate-700 font-medium focus:outline-none focus:border-emerald-600"
+                            >
+                              <option value="">-- Chọn bài có sẵn ({GUIDES_CATALOG.length} bài) --</option>
+                              {GUIDES_CATALOG.map((g) => (
+                                <option key={g.slug} value={g.url}>
+                                  [{g.category}] {g.shortTitle}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
                         <p className="text-[10px] text-slate-500 leading-relaxed">
                           Link này sẽ gắn vào nút riêng <b>"📚 Xem hướng dẫn sử dụng"</b> trên Bot Telegram và Web, không nhét vào nội dung mô tả.
                         </p>
