@@ -138,7 +138,10 @@ Quy tắc quan trọng:
    - Bạn nhận được (Chi tiết gói / Quota / Thời hạn)
    - Lưu ý khi sử dụng (nếu có)
    - Chính sách bảo hành & Hỗ trợ
-5. Nếu trong văn bản có thông tin hoặc đường dẫn hướng dẫn sử dụng (VD: link /guides/... hoặc link web), hãy giữ lại gọn gàng ở mục ghi chú hoặc mục <b>Hướng dẫn sử dụng:</b> để khách hàng dễ truy cập.`;
+5. Nếu trong văn bản có thông tin hoặc đường dẫn hướng dẫn sử dụng (VD: link /guides/... hoặc link web), hãy giữ lại gọn gàng ở mục ghi chú hoặc mục <b>Hướng dẫn sử dụng:</b> để khách hàng dễ truy cập.
+6. BẮT BUỘC ở cuối cùng của mỗi bài mô tả sản phẩm LUÔN LUÔN phải có đoạn thông tin hỗ trợ sau:
+<blockquote>Cần hỗ trợ hãy nhắn qua: @rinq_hotro
+Thời gian hoạt động của RINQ: 9h-23h</blockquote>`;
 
   switch (tone) {
     case "concise":
@@ -187,6 +190,8 @@ function localFormatFallback(options: RewriteOptions): string {
   if (tone === "telegram") {
     output += `\n<blockquote>Hệ thống giao tự động 24/7 tức thì sau khi thanh toán. Hỗ trợ kỹ thuật 1:1 qua admin.</blockquote>`;
   }
+
+  output += `\n<blockquote>Cần hỗ trợ hãy nhắn qua: @rinq_hotro\nThời gian hoạt động của RINQ: 9h-23h</blockquote>`;
 
   return output.trim();
 }
@@ -291,6 +296,14 @@ export async function rewriteProductContent(options: RewriteOptions): Promise<Re
           .replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
           .replace(/\n{3,}/g, "\n\n")
           .trim();
+
+        // Luon dam bao co thong tin ho tro o cuoi bai mo ta
+        if (options.type !== "warranty") {
+          const supportFooter = `<blockquote>Cần hỗ trợ hãy nhắn qua: @rinq_hotro\nThời gian hoạt động của RINQ: 9h-23h</blockquote>`;
+          if (!cleanedText.includes("@rinq_hotro")) {
+            cleanedText = `${cleanedText}\n\n${supportFooter}`;
+          }
+        }
 
         return {
           rewrittenText: cleanedText,
