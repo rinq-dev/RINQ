@@ -159,8 +159,9 @@ export default function EditProductModal({
       const data = await res.json();
       if (data.success && data.rewrittenText) {
         setEditDesc(data.rewrittenText);
+        const keyInfo = data.totalKeys > 1 ? `Đã đổi sang Key #${data.keyIndexUsed}/${data.totalKeys} (${data.keyMasked})` : `Key #${data.keyIndexUsed || 1}`;
         setAiStatus({
-          message: `Đã viết lại thành công (${data.model}${data.proxyUsed ? " qua Proxy" : ""})`,
+          message: `Đã viết lại thành công [${keyInfo}]${data.proxyUsed ? " qua Proxy" : ""}`,
         });
       } else {
         setAiStatus({ message: data.error || "Không thể viết lại nội dung", isError: true });

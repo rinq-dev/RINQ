@@ -177,7 +177,8 @@ export default function ProductsTab({
       const data = await res.json();
       if (data.success && data.rewrittenText) {
         setNewProductDesc(data.rewrittenText);
-        setCreateAiNotice({ message: `Đã viết lại (${data.model}${data.proxyUsed ? " qua Proxy" : ""})` });
+        const keyInfo = data.totalKeys > 1 ? `Đã đổi sang Key #${data.keyIndexUsed}/${data.totalKeys} (${data.keyMasked})` : `Key #${data.keyIndexUsed || 1}`;
+        setCreateAiNotice({ message: `Đã viết lại thành công [${keyInfo}]${data.proxyUsed ? " qua Proxy" : ""}` });
       } else {
         setCreateAiNotice({ message: data.error || "Không thể viết lại", isError: true });
       }

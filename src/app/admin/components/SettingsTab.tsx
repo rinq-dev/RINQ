@@ -109,7 +109,7 @@ export default function SettingsTab() {
               className="mt-1.5 w-full rounded-xl border border-slate-300 bg-slate-50/60 p-3 text-xs font-mono text-slate-900 outline-none transition focus:border-[#0e704b] focus:bg-white focus:ring-2 focus:ring-emerald-100 leading-relaxed"
             />
             <p className="mt-1 text-[11px] text-slate-500">
-              Hệ thống tự động xoay vòng (round-robin) các key khi admin bấm "AI viết lại" mô tả sản phẩm. Nếu một key bị hết hạn mức (429), bot tự động đổi key tiếp theo.
+              Mỗi request (lần bấm AI) sẽ tự động đổi sang API key tiếp theo trong danh sách theo cơ chế xoay vòng liên tục (Round-Robin per Request) để phân tán tải đều 100% giữa các key. Nếu một key gặp lỗi 429, hệ thống tự động nhảy sang key kế tiếp ngay lập tức.
             </p>
           </div>
 

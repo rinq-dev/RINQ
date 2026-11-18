@@ -12,6 +12,8 @@ export interface RewriteResult {
   rewrittenText: string;
   model: string;
   keyIndexUsed: number;
+  totalKeys: number;
+  keyMasked: string;
   proxyUsed: string | null;
 }
 
@@ -70,11 +72,37 @@ async function getProxies(): Promise<string[]> {
   }
 }
 
-function getNextKey(keys: string[]): { key: string; index: number } {
+async function getNextKey(keys: string[], attemptOffset = 0): Promise<{ key: string; index: number }> {
   if (keys.length === 0) return { key: "", index: -1 };
-  const index = currentKeyIndex % keys.length;
-  currentKeyIndex = (currentKeyIndex + 1) % keys.length;
-  return { key: keys[index], index };
+  if (keys.length === 1) return { key: keys[0], index: 0 };
+
+  try {
+    const record = await prisma.appSetting.findUnique({
+      where: { key: "AI_KEY_ROTATING_COUNTER" },
+    });
+    const currentVal = record ? parseInt(record.value, 10) || 0 : 0;
+    const assignedIndex = (currentVal + attemptOffset) % keys.length;
+
+    // Tăng bộ đếm cho request tiếp theo để phân tán tải đều (Round-Robin per Request)
+    if (attemptOffset === 0) {
+      const nextVal = (currentVal + 1) % keys.length;
+      await prisma.appSetting
+        .upsert({
+          where: { key: "AI_KEY_ROTATING_COUNTER" },
+          update: { value: String(nextVal) },
+          create: { key: "AI_KEY_ROTATING_COUNTER", value: String(nextVal) },
+        })
+        .catch(() => {});
+    }
+
+    return { key: keys[assignedIndex], index: assignedIndex };
+  } catch {
+    const idx = (currentKeyIndex + attemptOffset) % keys.length;
+    if (attemptOffset === 0) {
+      currentKeyIndex = (currentKeyIndex + 1) % keys.length;
+    }
+    return { key: keys[idx], index: idx };
+  }
 }
 
 function getNextProxy(proxies: string[]): string | null {
@@ -155,7 +183,9 @@ export async function rewriteProductContent(options: RewriteOptions): Promise<Re
     return {
       rewrittenText: localFormatFallback(options),
       model: "local-rule-formatter",
-      keyIndexUsed: -1,
+      keyIndexUsed: 0,
+      totalKeys: 0,
+      keyMasked: "Nội bộ",
       proxyUsed: null,
     };
   }
@@ -169,7 +199,7 @@ export async function rewriteProductContent(options: RewriteOptions): Promise<Re
   const maxAttempts = Math.min(keys.length * 2, 6);
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const { key, index: keyIdx } = getNextKey(keys);
+    const { key, index: keyIdx } = await getNextKey(keys, attempt);
     const proxyUrl = getNextProxy(proxies);
 
     try {
@@ -228,19 +258,23 @@ export async function rewriteProductContent(options: RewriteOptions): Promise<Re
       return {
         rewrittenText: cleanedText,
         model: "gemini-2.5-flash",
-        keyIndexUsed: keyIdx,
+        keyIndexUsed: keyIdx + 1,
+        totalKeys: keys.length,
+        keyMasked: key.length > 8 ? `...${key.slice(-6)}` : `Key #${keyIdx + 1}`,
         proxyUsed: proxyUrl,
       };
     } catch (err: any) {
       lastError = err;
-      console.warn(`[AI Rewrite] Lần thử ${attempt + 1} thất bại (Key #${keyIdx}, Proxy: ${proxyUrl || "direct"}):`, err?.message);
+      console.warn(`[AI Rewrite] Lần thử ${attempt + 1} thất bại (Key #${keyIdx + 1}, Proxy: ${proxyUrl || "direct"}):`, err?.message);
     }
   }
 
   return {
     rewrittenText: localFormatFallback(options),
     model: `fallback-error: ${lastError?.message?.slice(0, 80)}`,
-    keyIndexUsed: -1,
+    keyIndexUsed: 0,
+    totalKeys: keys.length,
+    keyMasked: "Không khả dụng",
     proxyUsed: null,
   };
 }
