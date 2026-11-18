@@ -138,7 +138,7 @@ Quy tắc quan trọng:
    - Bạn nhận được (Chi tiết gói / Quota / Thời hạn)
    - Lưu ý khi sử dụng (nếu có)
    - Chính sách bảo hành & Hỗ trợ
-5. TUYỆT ĐỐI KHÔNG tự chèn đường dẫn "Hướng dẫn: /guides/..." hay link website vào trong bài mô tả vì hệ thống đã có nút xem hướng dẫn riêng biệt.`;
+5. TUYỆT ĐỐI KHÔNG tự chèn đường dẫn "Hướng dẫn: /guides/..." hay link website vào trong bài mô tả vì hệ thống đã có nút xem hướng dẫn riêng biệt. Nếu trong văn bản gốc có dòng link hướng dẫn hoặc "Hướng dẫn sử dụng", hãy LỌC BỎ HOÀN TOÀN dòng đó khỏi bài mô tả.`;
 
   switch (tone) {
     case "concise":
@@ -219,6 +219,12 @@ export async function rewriteProductContent(options: RewriteOptions): Promise<Re
           options.category || "Công nghệ"
         }\nNội dung gốc cần viết lại:\n"""\n${options.text.trim()}\n"""\n\nHãy viết lại mô tả sản phẩm trên theo đúng phong cách và quy tắc đã hướng dẫn. Chỉ trả về nội dung hoàn chỉnh, không thêm lời chào, không thêm giải thích ngoài lề.`;
 
+  const CANDIDATE_MODELS = [
+    "gemini-flash-latest",
+    "gemini-3.8-flash",
+    "gemini-3.1-flash-lite",
+  ];
+
   let lastError: Error | null = null;
   const maxAttempts = Math.min(keys.length * 2, 6);
 
@@ -226,79 +232,89 @@ export async function rewriteProductContent(options: RewriteOptions): Promise<Re
     const { key, index: keyIdx } = await getNextKey(keys, attempt);
     const proxyUrl = getNextProxy(proxies);
 
-    try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(
-        key
-      )}`;
+    for (const model of CANDIDATE_MODELS) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
+          key
+        )}`;
 
-      const requestBody = {
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: prompt }],
+        const requestBody = {
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }],
+            },
+          ],
+          systemInstruction: {
+            parts: [{ text: systemInstruction }],
           },
-        ],
-        systemInstruction: {
-          parts: [{ text: systemInstruction }],
-        },
-        generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens: 2048,
-        },
-      };
+          generationConfig: {
+            temperature: 0.6,
+            maxOutputTokens: 2048,
+          },
+        };
 
-      const fetchOptions: any = {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      };
+        const fetchOptions: any = {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": key,
+          },
+          body: JSON.stringify(requestBody),
+        };
 
-      if (proxyUrl) {
-        fetchOptions.dispatcher = new ProxyAgent(proxyUrl);
+        if (proxyUrl) {
+          fetchOptions.dispatcher = new ProxyAgent(proxyUrl);
+        }
+
+        const response = await fetch(endpoint, fetchOptions);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          if (response.status === 404 || response.status === 503) {
+            console.warn(`[AI Rewrite] Model ${model} (Key #${keyIdx + 1}) trả về [${response.status}], thử model tiếp...`);
+            continue;
+          }
+          throw new Error(`Gemini API error [${response.status}]: ${errorText.slice(0, 300)}`);
+        }
+
+        const data = await response.json();
+        const candidateText =
+          data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+
+        if (!candidateText) {
+          throw new Error("Không nhận được nội dung từ mô hình AI");
+        }
+
+        // Sanitize: enforce no decorative emojis
+        let cleanedText = candidateText
+          .replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
+          .trim();
+
+        // If description, remove any legacy guide URL block if AI kept or echoed it
+        if (options.type !== "warranty") {
+          cleanedText = cleanedText
+            .replace(/(?:<b>)?(?:[📚📖🔗\s]*)(?:Hướng dẫn sử dụng|Xem hướng dẫn|Link hướng dẫn)[^<\n]*(?:<\/b>)?[\s\n]*(?:https?:\/\/[^\s<\n]+)?/gi, "")
+            .replace(/https?:\/\/rinqshop\.vercel\.app\/guides\/[^\s<\n]+/gi, "")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+        }
+
+        return {
+          rewrittenText: cleanedText,
+          model,
+          keyIndexUsed: keyIdx + 1,
+          totalKeys: keys.length,
+          keyMasked: key.length > 8 ? `...${key.slice(-6)}` : `Key #${keyIdx + 1}`,
+          proxyUsed: proxyUrl,
+        };
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[AI Rewrite] Lần thử ${attempt + 1} thất bại (Key #${keyIdx + 1}, Model: ${model}, Proxy: ${proxyUrl || "direct"}):`, err?.message);
       }
-
-      const response = await fetch(endpoint, fetchOptions);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini API error [${response.status}]: ${errorText.slice(0, 300)}`);
-      }
-
-      const data = await response.json();
-      const candidateText =
-        data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-
-      if (!candidateText) {
-        throw new Error("Không nhận được nội dung từ mô hình AI");
-      }
-
-      // Sanitize: enforce no decorative emojis
-      const cleanedText = candidateText
-        .replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
-        .trim();
-
-      return {
-        rewrittenText: cleanedText,
-        model: "gemini-2.5-flash",
-        keyIndexUsed: keyIdx + 1,
-        totalKeys: keys.length,
-        keyMasked: key.length > 8 ? `...${key.slice(-6)}` : `Key #${keyIdx + 1}`,
-        proxyUsed: proxyUrl,
-      };
-    } catch (err: any) {
-      lastError = err;
-      console.warn(`[AI Rewrite] Lần thử ${attempt + 1} thất bại (Key #${keyIdx + 1}, Proxy: ${proxyUrl || "direct"}):`, err?.message);
     }
   }
 
-  return {
-    rewrittenText: localFormatFallback(options),
-    model: `fallback-error: ${lastError?.message?.slice(0, 80)}`,
-    keyIndexUsed: 0,
-    totalKeys: keys.length,
-    keyMasked: "Không khả dụng",
-    proxyUsed: null,
-  };
+  // Nếu đã cấu hình key mà tất cả đều lỗi, báo lỗi thật thay vì giả mạo thành công
+  throw new Error(`Không thể kết nối AI (${lastError?.message || "Lỗi kết nối hoặc API Key"})`);
 }
