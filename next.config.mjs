@@ -2,6 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
+  experimental: {
+    agentUpgrade: "security",
+  },
 };
 
 export default nextConfig;
