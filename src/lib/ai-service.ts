@@ -1,4 +1,5 @@
 import { ProxyAgent } from "undici";
+import { prisma } from "@/lib/prisma";
 
 export interface RewriteOptions {
   text: string;
@@ -18,26 +19,55 @@ export interface RewriteResult {
 let currentKeyIndex = 0;
 let currentProxyIndex = 0;
 
-function getApiKeys(): string[] {
-  const envKeys = process.env.AI_API_KEYS || process.env.GEMINI_API_KEY || "";
-  return envKeys
-    .split(",")
-    .map((k) => k.trim())
-    .filter(Boolean);
+async function getApiKeys(): Promise<string[]> {
+  try {
+    const dbSetting = await prisma.appSetting.findUnique({
+      where: { key: "AI_API_KEYS" },
+    });
+    const rawKeys = dbSetting?.value?.trim() || process.env.AI_API_KEYS || process.env.GEMINI_API_KEY || "";
+    return rawKeys
+      .split(/[\r\n,]+/)
+      .map((k) => k.trim())
+      .filter(Boolean);
+  } catch {
+    const envKeys = process.env.AI_API_KEYS || process.env.GEMINI_API_KEY || "";
+    return envKeys
+      .split(/[\r\n,]+/)
+      .map((k) => k.trim())
+      .filter(Boolean);
+  }
 }
 
-function getProxies(): string[] {
-  const envProxies =
-    process.env.AI_PROXIES ||
-    process.env.ROTATING_PROXY_URL ||
-    process.env.AI_PROXY ||
-    process.env.HTTPS_PROXY ||
-    process.env.HTTP_PROXY ||
-    "";
-  return envProxies
-    .split(",")
-    .map((p) => p.trim())
-    .filter(Boolean);
+async function getProxies(): Promise<string[]> {
+  try {
+    const dbSetting = await prisma.appSetting.findUnique({
+      where: { key: "AI_PROXIES" },
+    });
+    const rawProxies =
+      dbSetting?.value?.trim() ||
+      process.env.AI_PROXIES ||
+      process.env.ROTATING_PROXY_URL ||
+      process.env.AI_PROXY ||
+      process.env.HTTPS_PROXY ||
+      process.env.HTTP_PROXY ||
+      "";
+    return rawProxies
+      .split(/[\r\n,]+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+  } catch {
+    const envProxies =
+      process.env.AI_PROXIES ||
+      process.env.ROTATING_PROXY_URL ||
+      process.env.AI_PROXY ||
+      process.env.HTTPS_PROXY ||
+      process.env.HTTP_PROXY ||
+      "";
+    return envProxies
+      .split(/[\r\n,]+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+  }
 }
 
 function getNextKey(keys: string[]): { key: string; index: number } {
@@ -118,8 +148,8 @@ function localFormatFallback(options: RewriteOptions): string {
  * Rewrite product content using Rotating AI API Keys and Rotating Proxies
  */
 export async function rewriteProductContent(options: RewriteOptions): Promise<RewriteResult> {
-  const keys = getApiKeys();
-  const proxies = getProxies();
+  const keys = await getApiKeys();
+  const proxies = await getProxies();
 
   if (keys.length === 0) {
     return {

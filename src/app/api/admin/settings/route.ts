@@ -2,8 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { COOKIE_NAME, isValidAdminSession } from "@/lib/admin-session";
 
-const KEYS = ["SHOP_NAME", "BOT_USERNAME", "SUPPORT_USERNAME", "BANK_ID", "BANK_ACCOUNT_NO", "BANK_ACCOUNT_NAME", "API5S_ACB_TOKEN"] as const;
+const KEYS = [
+  "SHOP_NAME",
+  "BOT_USERNAME",
+  "SUPPORT_USERNAME",
+  "BANK_ID",
+  "BANK_ACCOUNT_NO",
+  "BANK_ACCOUNT_NAME",
+  "API5S_ACB_TOKEN",
+  "AI_API_KEYS",
+  "AI_PROXIES",
+] as const;
 const safeString = (value: unknown, max: number) => typeof value === "string" ? value.trim().slice(0, max) : "";
+const safeText = (value: unknown, max: number) => typeof value === "string" ? value.trim().slice(0, max) : "";
 
 async function authorized(request: NextRequest) { return isValidAdminSession(request.cookies.get(COOKIE_NAME)?.value); }
 
@@ -22,6 +33,8 @@ export async function GET(request: NextRequest) {
         BANK_ACCOUNT_NO: saved.BANK_ACCOUNT_NO || process.env.BANK_ACCOUNT_NO || "28753551",
         BANK_ACCOUNT_NAME: saved.BANK_ACCOUNT_NAME || process.env.BANK_ACCOUNT_NAME || "NGUYEN TAI PHAT",
         API5S_ACB_TOKEN: saved.API5S_ACB_TOKEN || process.env.API5S_ACB_TOKEN || "",
+        AI_API_KEYS: saved.AI_API_KEYS || process.env.AI_API_KEYS || process.env.GEMINI_API_KEY || "",
+        AI_PROXIES: saved.AI_PROXIES || process.env.AI_PROXIES || process.env.ROTATING_PROXY_URL || "",
         statuses: {
           telegram: Boolean(process.env.BOT_TOKEN),
           api5s: Boolean(saved.API5S_ACB_TOKEN || process.env.API5S_ACB_TOKEN),
@@ -47,6 +60,8 @@ export async function POST(request: NextRequest) {
       BANK_ACCOUNT_NO: safeString(source.BANK_ACCOUNT_NO, 32),
       BANK_ACCOUNT_NAME: safeString(source.BANK_ACCOUNT_NAME, 120),
       API5S_ACB_TOKEN: safeString(source.API5S_ACB_TOKEN, 120),
+      AI_API_KEYS: safeText(source.AI_API_KEYS, 50000),
+      AI_PROXIES: safeText(source.AI_PROXIES, 50000),
     };
     if (!values.SHOP_NAME || !values.BOT_USERNAME || !values.SUPPORT_USERNAME || !values.BANK_ID || !values.BANK_ACCOUNT_NO || !values.BANK_ACCOUNT_NAME) return NextResponse.json({ error: "Vui lòng điền đủ các trường cấu hình." }, { status: 400 });
     if (!/^\d{4,32}$/.test(values.BANK_ACCOUNT_NO)) return NextResponse.json({ error: "Số tài khoản chỉ được gồm 4–32 chữ số." }, { status: 400 });
