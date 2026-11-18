@@ -151,6 +151,7 @@ export default function AdminPage() {
   const [newProductCategory, setNewProductCategory] = useState("AI");
   const [newProductDesc, setNewProductDesc] = useState("");
   const [newProductWarranty, setNewProductWarranty] = useState("");
+  const [newProductGuideUrl, setNewProductGuideUrl] = useState("");
   const [newProductImage, setNewProductImage] = useState("");
   const [newSupplierVariantId, setNewSupplierVariantId] = useState("");
   const [newFulfillmentType, setNewFulfillmentType] = useState("HYBRID");
@@ -187,6 +188,7 @@ export default function AdminPage() {
   const [editWarranty, setEditWarranty] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [editPriceReason, setEditPriceReason] = useState("");
+  const [editGuideUrl, setEditGuideUrl] = useState("");
   const [editProductImage, setEditProductImage] = useState("");
   const [editSupplierVariantId, setEditSupplierVariantId] = useState("");
   const [editFulfillmentType, setEditFulfillmentType] = useState("HYBRID");
@@ -520,6 +522,7 @@ export default function AdminPage() {
           category: newProductCategory.trim(),
           description: newProductDesc.trim(),
           warranty: newProductWarranty.trim() || null,
+          guideUrl: newProductGuideUrl.trim() || null,
           imageUrl: newProductImage.trim() || null,
           supplierVariantId: newSupplierVariantId.trim() || null,
           fulfillmentType: newFulfillmentType,
@@ -535,6 +538,7 @@ export default function AdminPage() {
         setNewProductFakeStock("0");
         setNewProductDesc("");
         setNewProductWarranty("");
+        setNewProductGuideUrl("");
         setNewProductImage("");
         setNewSupplierVariantId("");
         setNewFulfillmentType("HYBRID");
@@ -670,6 +674,7 @@ export default function AdminPage() {
     setEditWarranty(p.warranty || "");
     setEditCategory(p.category || "");
     setEditPriceReason(p.priceNote || "");
+    setEditGuideUrl(p.guideUrl || "");
     setEditProductImage(p.imageUrl || "");
     setEditSupplierVariantId(p.supplierVariantId || "");
     setEditFulfillmentType(p.fulfillmentType || "HYBRID");
@@ -701,6 +706,7 @@ export default function AdminPage() {
           category: editCategory.trim(),
           description: editDesc.trim(),
           warranty: editWarranty.trim() || null,
+          guideUrl: editGuideUrl.trim() || null,
           priceReason: editPriceReason.trim(),
           imageUrl: editProductImage.trim() || null,
           supplierVariantId: editSupplierVariantId.trim() || null,
@@ -1700,6 +1706,8 @@ export default function AdminPage() {
                   setNewProductDesc={setNewProductDesc}
                   newProductWarranty={newProductWarranty}
                   setNewProductWarranty={setNewProductWarranty}
+                  newProductGuideUrl={newProductGuideUrl}
+                  setNewProductGuideUrl={setNewProductGuideUrl}
                   newFulfillmentType={newFulfillmentType}
                   setNewFulfillmentType={setNewFulfillmentType}
                   newSupplierVariantId={newSupplierVariantId}
@@ -1843,6 +1851,8 @@ export default function AdminPage() {
         setEditCategory={setEditCategory}
         editPriceReason={editPriceReason}
         setEditPriceReason={setEditPriceReason}
+        editGuideUrl={editGuideUrl}
+        setEditGuideUrl={setEditGuideUrl}
         editProductImage={editProductImage}
         setEditProductImage={setEditProductImage}
         editSupplierVariantId={editSupplierVariantId}

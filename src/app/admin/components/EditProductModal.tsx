@@ -14,6 +14,13 @@ import {
   Quote,
   FileText,
   RotateCcw,
+  Sparkles,
+  Bot,
+  Wand2,
+  ExternalLink,
+  LoaderCircle,
+  BookOpen,
+  Check,
 } from "lucide-react";
 import { Product } from "../types";
 import ProductImageField from "./ProductImageField";
@@ -35,6 +42,8 @@ interface EditProductModalProps {
   setEditCategory: (val: string) => void;
   editPriceReason: string;
   setEditPriceReason: (val: string) => void;
+  editGuideUrl: string;
+  setEditGuideUrl: (val: string) => void;
   editProductImage: string;
   setEditProductImage: (val: string) => void;
   editSupplierVariantId: string;
@@ -103,6 +112,8 @@ export default function EditProductModal({
   setEditCategory,
   editPriceReason,
   setEditPriceReason,
+  editGuideUrl,
+  setEditGuideUrl,
   editProductImage,
   setEditProductImage,
   editSupplierVariantId,
@@ -118,8 +129,48 @@ export default function EditProductModal({
 }: EditProductModalProps) {
   const [rightTab, setRightTab] = useState<"edit" | "preview">("edit");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isAiRewriting, setIsAiRewriting] = useState(false);
+  const [aiTone, setAiTone] = useState<"telegram" | "concise" | "sales" | "tech">("telegram");
+  const [aiStatus, setAiStatus] = useState<{ message: string; isError?: boolean } | null>(null);
 
   if (!editingProduct) return null;
+
+  const handleAiRewrite = async () => {
+    if (!editDesc.trim()) {
+      setAiStatus({ message: "Vui lòng nhập một vài thông tin mô tả trước khi bấm AI viết lại", isError: true });
+      return;
+    }
+
+    setIsAiRewriting(true);
+    setAiStatus(null);
+
+    try {
+      const res = await fetch("/api/ai/rewrite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: editDesc,
+          productName: editName,
+          category: editCategory,
+          tone: aiTone,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.rewrittenText) {
+        setEditDesc(data.rewrittenText);
+        setAiStatus({
+          message: `Đã viết lại thành công (${data.model}${data.proxyUsed ? " qua Proxy" : ""})`,
+        });
+      } else {
+        setAiStatus({ message: data.error || "Không thể viết lại nội dung", isError: true });
+      }
+    } catch (err: any) {
+      setAiStatus({ message: err?.message || "Lỗi kết nối AI", isError: true });
+    } finally {
+      setIsAiRewriting(false);
+    }
+  };
 
   const insertFormatting = (tagStart: string, tagEnd: string = "") => {
     const el = textareaRef.current;
@@ -428,6 +479,41 @@ export default function EditProductModal({
 
                 <ProductImageField id="edit-product-image" value={editProductImage} onChange={setEditProductImage} />
 
+                {/* Duong link huong dan rieng biet */}
+                <div className="p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <BookOpen className="h-3.5 w-3.5 text-[#0e704b]" />
+                      <span>Đường link hướng dẫn sử dụng riêng</span>
+                    </label>
+                    {editGuideUrl?.trim() && (
+                      <a
+                        href={
+                          editGuideUrl.startsWith("http://") || editGuideUrl.startsWith("https://")
+                            ? editGuideUrl
+                            : `https://rinqshop.vercel.app${editGuideUrl.startsWith("/") ? "" : "/"}${editGuideUrl}`
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0e704b] hover:underline"
+                      >
+                        <span>Mở xem thử</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={editGuideUrl}
+                    onChange={(e) => setEditGuideUrl(e.target.value)}
+                    placeholder="VD: /guides/doi-tac-2-claude hoặc https://..."
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
+                    Đường link này sẽ hiển thị thành nút bấm riêng <b>"📚 Xem hướng dẫn sử dụng"</b> trên Bot Telegram và Web, tách biệt hoàn toàn khỏi đoạn mô tả.
+                  </p>
+                </div>
+
                 {/* Nguon cap hang tu dong API NCC */}
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2.5">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
@@ -560,6 +646,81 @@ export default function EditProductModal({
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    {/* Tro ly AI Bien tap mo ta */}
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-slate-50 border border-emerald-200/90 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-6 w-6 rounded-lg bg-[#0e704b] text-white flex items-center justify-center shadow-xs">
+                            <Sparkles className="h-3.5 w-3.5" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-black text-slate-900 uppercase tracking-wide">
+                              Trợ lý AI biên tập
+                            </span>
+                            <span className="ml-1.5 text-[10px] text-emerald-800 font-semibold bg-emerald-100/80 px-1.5 py-0.2 rounded-full">
+                              Xoay Proxy &amp; Key
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={isAiRewriting || !editDesc.trim()}
+                          onClick={handleAiRewrite}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-[#0e704b] hover:bg-[#0a5c3d] disabled:opacity-50 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs active:scale-95 cursor-pointer"
+                        >
+                          {isAiRewriting ? (
+                            <>
+                              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                              <span>Đang viết lại...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="h-3.5 w-3.5" />
+                              <span>AI Viết lại ngay</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Tone selector */}
+                      <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                        <span className="text-[10px] font-bold text-slate-500 mr-1">Phong cách:</span>
+                        {[
+                          { id: "telegram", label: "Telegram chuẩn" },
+                          { id: "concise", label: "Rút gọn súc tích" },
+                          { id: "sales", label: "Bán hàng hấp dẫn" },
+                          { id: "tech", label: "Kỹ thuật chuyên sâu" },
+                        ].map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setAiTone(t.id as any)}
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition border ${
+                              aiTone === t.id
+                                ? "bg-slate-900 text-white border-slate-900 shadow-2xs"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {aiStatus && (
+                        <div
+                          className={`text-[11px] font-medium px-2.5 py-1 rounded-xl flex items-center gap-1.5 ${
+                            aiStatus.isError
+                              ? "bg-rose-50 text-rose-700 border border-rose-200"
+                              : "bg-emerald-100/70 text-emerald-900 border border-emerald-200"
+                          }`}
+                        >
+                          {!aiStatus.isError && <Check className="h-3.5 w-3.5 text-[#0e704b] shrink-0" />}
+                          <span>{aiStatus.message}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Toolbar nhanh */}
@@ -722,6 +883,13 @@ export default function EditProductModal({
                           Dung ma giam gia
                         </div>
                       </div>
+
+                      {editGuideUrl?.trim() && (
+                        <div className="py-2.5 px-3 rounded-xl bg-emerald-950/60 text-emerald-300 text-xs font-bold text-center border border-emerald-500/50 shadow-sm flex items-center justify-center gap-1.5">
+                          <BookOpen className="h-3.5 w-3.5 text-emerald-400" />
+                          <span>📚 Xem hướng dẫn sử dụng</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

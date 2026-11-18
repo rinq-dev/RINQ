@@ -11,6 +11,7 @@ export interface Product {
   fulfillmentType?: string | null;
   retailMarginPercent?: number;
   fakeStock?: number;
+  guideUrl?: string | null;
   isActive: boolean;
   createdAt: string;
   stockAvailable: number;

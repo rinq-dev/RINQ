@@ -933,6 +933,15 @@ export async function sendProductDetail(
     keyboard.text(`🛒 Xem giỏ hàng (${totalItems} món)`, "cart_view").row();
   }
 
+  // Nút xem hướng dẫn sử dụng riêng biệt nếu có
+  const rawGuideUrl = (product as any).guideUrl?.trim();
+  if (rawGuideUrl) {
+    const finalGuideUrl = rawGuideUrl.startsWith("http://") || rawGuideUrl.startsWith("https://")
+      ? rawGuideUrl
+      : `https://rinqshop.vercel.app${rawGuideUrl.startsWith("/") ? "" : "/"}${rawGuideUrl}`;
+    keyboard.url("📚 Xem hướng dẫn sử dụng", finalGuideUrl).row();
+  }
+
   if (product.category && product.category.trim()) {
     keyboard.text(`Quay lại danh mục ${product.category}`, `cat:${product.category}`).row();
   }

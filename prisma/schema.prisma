@@ -23,6 +23,7 @@ model Product {
   lastSupplierPrice   Int?
   autoPriceSync       Boolean     @default(true)
   fakeStock           Int         @default(0)
+  guideUrl            String?
   isActive            Boolean     @default(true)
   stocks            StockItem[]
   orders            Order[]

@@ -22,6 +22,11 @@ import {
   ChevronLeft,
   ChevronRight,
   LoaderCircle,
+  BookOpen,
+  Sparkles,
+  Wand2,
+  ExternalLink,
+  Check,
 } from "lucide-react";
 import { Product } from "../types";
 import ProductImageField from "./ProductImageField";
@@ -63,6 +68,8 @@ interface ProductsTabProps {
   setNewProductDesc: (val: string) => void;
   newProductWarranty: string;
   setNewProductWarranty: (val: string) => void;
+  newProductGuideUrl: string;
+  setNewProductGuideUrl: (val: string) => void;
   newFulfillmentType: string;
   setNewFulfillmentType: (val: string) => void;
   newSupplierVariantId: string;
@@ -112,6 +119,8 @@ export default function ProductsTab({
   setNewProductDesc,
   newProductWarranty,
   setNewProductWarranty,
+  newProductGuideUrl,
+  setNewProductGuideUrl,
   newFulfillmentType,
   setNewFulfillmentType,
   newSupplierVariantId,
@@ -143,6 +152,41 @@ export default function ProductsTab({
   const [quickStockText, setQuickStockText] = useState("");
   const [quickNotify, setQuickNotify] = useState(true);
   const [isSubmittingQuickStock, setIsSubmittingQuickStock] = useState(false);
+  const [isCreateAiRewriting, setIsCreateAiRewriting] = useState(false);
+  const [createAiTone, setCreateAiTone] = useState<"telegram" | "concise" | "sales" | "tech">("telegram");
+  const [createAiNotice, setCreateAiNotice] = useState<{ message: string; isError?: boolean } | null>(null);
+
+  const handleCreateAiRewrite = async () => {
+    if (!newProductDesc.trim()) {
+      setCreateAiNotice({ message: "Vui lòng nhập một vài ý mô tả trước khi bấm AI viết lại", isError: true });
+      return;
+    }
+    setIsCreateAiRewriting(true);
+    setCreateAiNotice(null);
+    try {
+      const res = await fetch("/api/ai/rewrite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: newProductDesc,
+          productName: newProductName,
+          category: newProductCategory,
+          tone: createAiTone,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.rewrittenText) {
+        setNewProductDesc(data.rewrittenText);
+        setCreateAiNotice({ message: `Đã viết lại (${data.model}${data.proxyUsed ? " qua Proxy" : ""})` });
+      } else {
+        setCreateAiNotice({ message: data.error || "Không thể viết lại", isError: true });
+      }
+    } catch (err: any) {
+      setCreateAiNotice({ message: err?.message || "Lỗi AI", isError: true });
+    } finally {
+      setIsCreateAiRewriting(false);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -510,6 +554,23 @@ export default function ProductsTab({
                             Ghi chú giá
                           </span>
                         )}
+
+                        {p.guideUrl && (
+                          <a
+                            href={
+                              p.guideUrl.startsWith("http://") || p.guideUrl.startsWith("https://")
+                                ? p.guideUrl
+                                : `https://rinqshop.vercel.app${p.guideUrl.startsWith("/") ? "" : "/"}${p.guideUrl}`
+                            }
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 font-bold text-[#0e704b] hover:underline"
+                            title="Mở hướng dẫn sản phẩm"
+                          >
+                            <BookOpen className="h-2.5 w-2.5 text-[#0e704b]" />
+                            Hướng dẫn
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -688,6 +749,22 @@ export default function ProductsTab({
                                 <FileText className="h-2.5 w-2.5 shrink-0 text-amber-600" />
                                 Ghi chú giá
                               </span>
+                            )}
+                            {p.guideUrl && (
+                              <a
+                                href={
+                                  p.guideUrl.startsWith("http://") || p.guideUrl.startsWith("https://")
+                                    ? p.guideUrl
+                                    : `https://rinqshop.vercel.app${p.guideUrl.startsWith("/") ? "" : "/"}${p.guideUrl}`
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 font-bold text-[#0e704b] hover:underline"
+                                title="Mở hướng dẫn sản phẩm"
+                              >
+                                <BookOpen className="h-2.5 w-2.5 text-[#0e704b]" />
+                                Hướng dẫn
+                              </a>
                             )}
                           </div>
                         </div>
@@ -1359,10 +1436,53 @@ export default function ProductsTab({
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Mô tả sản phẩm
-              </label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Mô tả sản phẩm
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={createAiTone}
+                    onChange={(e) => setCreateAiTone(e.target.value as any)}
+                    className="text-[10px] font-bold rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-slate-700"
+                  >
+                    <option value="telegram">Telegram HTML</option>
+                    <option value="concise">Rút gọn</option>
+                    <option value="sales">Bán hàng</option>
+                    <option value="tech">Kỹ thuật</option>
+                  </select>
+                  <button
+                    type="button"
+                    disabled={isCreateAiRewriting || !newProductDesc.trim()}
+                    onClick={handleCreateAiRewrite}
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#0e704b] hover:bg-[#0a5c3d] disabled:opacity-50 text-white px-2.5 py-0.5 text-[11px] font-bold transition shadow-2xs"
+                  >
+                    {isCreateAiRewriting ? (
+                      <>
+                        <LoaderCircle className="h-3 w-3 animate-spin" />
+                        <span>Đang viết...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3 w-3" />
+                        <span>AI Viết lại</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {createAiNotice && (
+                <div
+                  className={`text-[10px] font-medium px-2 py-0.5 rounded-lg flex items-center gap-1 ${
+                    createAiNotice.isError ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-800"
+                  }`}
+                >
+                  <span>{createAiNotice.message}</span>
+                </div>
+              )}
+
               <textarea
                 rows={3}
                 placeholder="Mô tả chi tiết sản phẩm, tính năng, hướng dẫn..."
@@ -1383,6 +1503,30 @@ export default function ProductsTab({
                 onChange={(e) => setNewProductWarranty(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
               />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                  <BookOpen className="h-3.5 w-3.5 text-[#0e704b]" />
+                  <span>Đường link hướng dẫn sử dụng riêng (URL / Guide)</span>
+                </label>
+                {newProductGuideUrl && (
+                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
+                    Đã cấu hình link
+                  </span>
+                )}
+              </div>
+              <input
+                type="text"
+                placeholder="VD: /guides/doi-tac-2-claude hoặc https://..."
+                value={newProductGuideUrl}
+                onChange={(e) => setNewProductGuideUrl(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-emerald-600"
+              />
+              <p className="text-[10px] text-slate-500 mt-1">
+                Đường link này sẽ hiển thị thành nút bấm riêng <b>"📚 Xem hướng dẫn sử dụng"</b> trên Bot Telegram và Web, thay thế việc nhét link vào text mô tả.
+              </p>
             </div>
 
             <details className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
