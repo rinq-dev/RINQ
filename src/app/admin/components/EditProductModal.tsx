@@ -480,41 +480,6 @@ export default function EditProductModal({
 
                 <ProductImageField id="edit-product-image" value={editProductImage} onChange={setEditProductImage} />
 
-                {/* Duong link huong dan rieng biet */}
-                <div className="p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <BookOpen className="h-3.5 w-3.5 text-[#0e704b]" />
-                      <span>Đường link hướng dẫn sử dụng riêng</span>
-                    </label>
-                    {editGuideUrl?.trim() && (
-                      <a
-                        href={
-                          editGuideUrl.startsWith("http://") || editGuideUrl.startsWith("https://")
-                            ? editGuideUrl
-                            : `https://rinqshop.vercel.app${editGuideUrl.startsWith("/") ? "" : "/"}${editGuideUrl}`
-                        }
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0e704b] hover:underline"
-                      >
-                        <span>Mở xem thử</span>
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                  </div>
-                  <input
-                    type="text"
-                    value={editGuideUrl}
-                    onChange={(e) => setEditGuideUrl(e.target.value)}
-                    placeholder="VD: /guides/doi-tac-2-claude hoặc https://..."
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-emerald-600"
-                  />
-                  <p className="text-[10px] text-slate-500 leading-relaxed">
-                    Đường link này sẽ hiển thị thành nút bấm riêng <b>"📚 Xem hướng dẫn sử dụng"</b> trên Bot Telegram và Web, tách biệt hoàn toàn khỏi đoạn mô tả.
-                  </p>
-                </div>
-
                 {/* Nguon cap hang tu dong API NCC */}
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2.5">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
@@ -708,6 +673,41 @@ export default function EditProductModal({
                             {t.label}
                           </button>
                         ))}
+                      </div>
+
+                      {/* O nhap link huong dan su dung rieng */}
+                      <div className="pt-2 border-t border-emerald-200/70 mt-1 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                            <BookOpen className="h-3.5 w-3.5 text-[#0e704b]" />
+                            <span>Đường link hướng dẫn sử dụng riêng (URL / Guide)</span>
+                          </label>
+                          {editGuideUrl?.trim() && (
+                            <a
+                              href={
+                                editGuideUrl.startsWith("http://") || editGuideUrl.startsWith("https://")
+                                  ? editGuideUrl
+                                  : `https://rinqshop.vercel.app${editGuideUrl.startsWith("/") ? "" : "/"}${editGuideUrl}`
+                              }
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0e704b] hover:underline"
+                            >
+                              <span>Mở xem thử</span>
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          value={editGuideUrl}
+                          onChange={(e) => setEditGuideUrl(e.target.value)}
+                          placeholder="VD: /guides/doi-tac-2-claude hoặc https://..."
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-200 shadow-2xs"
+                        />
+                        <p className="text-[10px] text-slate-500 leading-relaxed">
+                          Link này sẽ gắn vào nút riêng <b>"📚 Xem hướng dẫn sử dụng"</b> trên Bot Telegram và Web, không nhét vào nội dung mô tả.
+                        </p>
                       </div>
 
                       {aiStatus && (
