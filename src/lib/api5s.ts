@@ -559,6 +559,17 @@ export async function processApi5sTransaction(tx: Api5sTransaction): Promise<{
       ? `<blockquote>🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
       : "";
 
+    const rawDeliveryGuide = (order.product as any)?.guideUrl?.trim();
+    const finalDeliveryGuideUrl = rawDeliveryGuide
+      ? (rawDeliveryGuide.startsWith("http://") || rawDeliveryGuide.startsWith("https://")
+          ? rawDeliveryGuide
+          : `https://rinqshop.vercel.app${rawDeliveryGuide.startsWith("/") ? "" : "/"}${rawDeliveryGuide}`)
+      : "";
+
+    const guideNotice = finalDeliveryGuideUrl
+      ? `<blockquote>📚 <b>HƯỚNG DẪN SỬ DỤNG SẢN PHẨM:</b>\n<a href="${finalDeliveryGuideUrl}">👉 Bấm vào đây để xem bài viết hướng dẫn chi tiết</a></blockquote>\n\n`
+      : "";
+
     const crossSell = await getPostPurchaseCrossSell(order.product.name, order.product.category);
     const crossSellNotice = crossSell
       ? `<blockquote>💡 <b>GỢI Ý HỮU ÍCH:</b>\n${crossSell.reason}\n• Tham khảo ngay: <b>${crossSell.name}</b></blockquote>\n\n`
@@ -575,29 +586,37 @@ export async function processApi5sTransaction(tx: Api5sTransaction): Promise<{
       `🕒 <b>Thời gian ghi nhận:</b> ${new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}\n\n` +
       keysText +
       warrantyNotice +
+      guideNotice +
       crossSellNotice +
       `<blockquote>💡 <i>Ghi chú: Quý khách chạm trực tiếp vào dòng mã trên để tự động sao chép toàn bộ.</i></blockquote>\n\n` +
       `RINQ SHOP xin chân thành cảm ơn Quý khách đã tin tưởng và đồng hành cùng chúng tôi.\n` +
       `Nếu cần hỗ trợ bảo hành hoặc tư vấn, Quý khách vui lòng liên hệ Admin <b>@rinq_hotro</b>. Trân trọng!`;
 
-    const deliveryKeyboard: any = {
-      inline_keyboard: [
-        [
-          { text: "📥 Tải file đơn (.txt)", callback_data: `dl_order:${result.order.id}` },
-          { text: "📦 Đơn của tôi", callback_data: "inline_my_orders" },
-        ],
-        [
-          { text: "🛒 Tiếp tục mua sắm", callback_data: "menu_products" },
-          { text: "💬 Hỗ trợ (@rinq_hotro)", url: "https://t.me/rinq_hotro" },
-        ],
+    const inlineButtons: any[][] = [
+      [
+        { text: "📥 Tải file đơn (.txt)", callback_data: `dl_order:${result.order.id}` },
+        { text: "📦 Đơn của tôi", callback_data: "inline_my_orders" },
       ],
-    };
+    ];
+
+    if (finalDeliveryGuideUrl) {
+      inlineButtons.push([{ text: "📚 Xem hướng dẫn sử dụng", url: finalDeliveryGuideUrl }]);
+    }
+
+    inlineButtons.push([
+      { text: "🛒 Tiếp tục mua sắm", callback_data: "menu_products" },
+      { text: "💬 Hỗ trợ (@rinq_hotro)", url: "https://t.me/rinq_hotro" },
+    ]);
 
     if (crossSell) {
-      deliveryKeyboard.inline_keyboard.unshift([
+      inlineButtons.unshift([
         { text: `✨ Xem mua kèm: ${crossSell.name.slice(0, 26)}`, callback_data: `prod:${crossSell.id}` },
       ]);
     }
+
+    const deliveryKeyboard: any = {
+      inline_keyboard: inlineButtons,
+    };
 
     fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",

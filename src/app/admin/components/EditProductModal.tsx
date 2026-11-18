@@ -754,21 +754,40 @@ export default function EditProductModal({
                             <BookOpen className="h-3.5 w-3.5 text-[#0e704b]" />
                             <span>Đường link hướng dẫn sử dụng riêng (URL / Guide)</span>
                           </label>
-                          {editGuideUrl?.trim() && (
-                            <a
-                              href={
-                                editGuideUrl.startsWith("http://") || editGuideUrl.startsWith("https://")
-                                  ? editGuideUrl
-                                  : `https://rinqshop.vercel.app${editGuideUrl.startsWith("/") ? "" : "/"}${editGuideUrl}`
-                              }
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0e704b] hover:underline"
-                            >
-                              <span>Mở xem thử</span>
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {editGuideUrl?.trim() && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const fullUrl =
+                                    editGuideUrl.startsWith("http://") || editGuideUrl.startsWith("https://")
+                                      ? editGuideUrl
+                                      : `https://rinqshop.vercel.app${editGuideUrl.startsWith("/") ? "" : "/"}${editGuideUrl}`;
+                                  const insertStr = `\n\n<b>Hướng dẫn sử dụng:</b>\n${fullUrl}`;
+                                  setEditDesc(editDesc ? `${editDesc.trim()}${insertStr}` : insertStr.trim());
+                                }}
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0e704b] bg-emerald-100/70 hover:bg-emerald-200/80 px-2 py-0.5 rounded-lg border border-emerald-300 transition cursor-pointer"
+                                title="Chèn kèm đường link hướng dẫn này vào ô ghi chú mô tả"
+                              >
+                                <span>+ Chèn vào ghi chú</span>
+                              </button>
+                            )}
+                            {editGuideUrl?.trim() && (
+                              <a
+                                href={
+                                  editGuideUrl.startsWith("http://") || editGuideUrl.startsWith("https://")
+                                    ? editGuideUrl
+                                    : `https://rinqshop.vercel.app${editGuideUrl.startsWith("/") ? "" : "/"}${editGuideUrl}`
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0e704b] hover:underline"
+                              >
+                                <span>Mở xem thử</span>
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                          </div>
                         </div>
 
                         {/* AI Prediction & Suggestion Banner */}
@@ -823,7 +842,7 @@ export default function EditProductModal({
                         </div>
 
                         <p className="text-[10px] text-slate-500 leading-relaxed">
-                          Link này sẽ gắn vào nút riêng <b>"📚 Xem hướng dẫn sử dụng"</b> trên Bot Telegram và Web, không nhét vào nội dung mô tả.
+                          Link này sẽ gắn vào nút riêng <b>"📚 Xem hướng dẫn sử dụng"</b> trên Bot Telegram và Web, đồng thời hiển thị trong phần ghi chú và gửi kèm ngay khi khách mua hàng xong.
                         </p>
                       </div>
 

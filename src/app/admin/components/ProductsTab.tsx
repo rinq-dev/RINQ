@@ -1618,11 +1618,30 @@ export default function ProductsTab({
                   <BookOpen className="h-3.5 w-3.5 text-[#0e704b]" />
                   <span>Đường link hướng dẫn sử dụng riêng (URL / Guide)</span>
                 </label>
-                {newProductGuideUrl && (
-                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
-                    Đã chọn link
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {newProductGuideUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const fullUrl =
+                          newProductGuideUrl.startsWith("http://") || newProductGuideUrl.startsWith("https://")
+                            ? newProductGuideUrl
+                            : `https://rinqshop.vercel.app${newProductGuideUrl.startsWith("/") ? "" : "/"}${newProductGuideUrl}`;
+                        const insertStr = `\n\n<b>Hướng dẫn sử dụng:</b>\n${fullUrl}`;
+                        setNewProductDesc(newProductDesc ? `${newProductDesc.trim()}${insertStr}` : insertStr.trim());
+                      }}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0e704b] bg-emerald-100/70 hover:bg-emerald-200/80 px-2 py-0.5 rounded-lg border border-emerald-300 transition cursor-pointer"
+                      title="Chèn kèm đường link hướng dẫn này vào ô ghi chú mô tả"
+                    >
+                      <span>+ Chèn vào ghi chú</span>
+                    </button>
+                  )}
+                  {newProductGuideUrl && (
+                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
+                      Đã chọn link
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* AI Prediction for new product */}

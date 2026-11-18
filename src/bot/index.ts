@@ -850,6 +850,18 @@ export async function sendProductDetail(
   const priceNoteText = (product as any).priceNote
     ? `<blockquote><b>Ghi chú:</b>\n${(product as any).priceNote}</blockquote>\n\n`
     : "";
+
+  const rawGuideUrl = (product as any).guideUrl?.trim();
+  const finalGuideUrl = rawGuideUrl
+    ? (rawGuideUrl.startsWith("http://") || rawGuideUrl.startsWith("https://")
+        ? rawGuideUrl
+        : `https://rinqshop.vercel.app${rawGuideUrl.startsWith("/") ? "" : "/"}${rawGuideUrl}`)
+    : "";
+
+  const guideNoteText = finalGuideUrl
+    ? `<blockquote>📚 <b>HƯỚNG DẪN SỬ DỤNG:</b>\n<a href="${finalGuideUrl}">👉 Bấm vào đây để xem bài viết hướng dẫn chi tiết</a></blockquote>\n\n`
+    : "";
+
   let warrantyText = "";
   if (product.warranty?.trim()) {
     const rawWarranty = product.warranty.trim();
@@ -892,6 +904,7 @@ export async function sendProductDetail(
     `• <b>Tình trạng:</b> ${stockStatusStr}\n` +
     `• <b>Hình thức:</b> Giao tài nguyên tự động 24/7\n\n` +
     priceNoteText +
+    guideNoteText +
     `<b>Thông tin & Mô tả chi tiết:</b>\n${desc}\n\n` +
     warrantyText +
     crossSellText +
@@ -934,11 +947,7 @@ export async function sendProductDetail(
   }
 
   // Nút xem hướng dẫn sử dụng riêng biệt nếu có
-  const rawGuideUrl = (product as any).guideUrl?.trim();
-  if (rawGuideUrl) {
-    const finalGuideUrl = rawGuideUrl.startsWith("http://") || rawGuideUrl.startsWith("https://")
-      ? rawGuideUrl
-      : `https://rinqshop.vercel.app${rawGuideUrl.startsWith("/") ? "" : "/"}${rawGuideUrl}`;
+  if (finalGuideUrl) {
     keyboard.url("📚 Xem hướng dẫn sử dụng", finalGuideUrl).row();
   }
 
@@ -2509,6 +2518,27 @@ bot.callbackQuery(/^pay_balance:(DH[A-F0-9]+)$/, async (ctx) => {
       ? `<blockquote>🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
       : "";
 
+    const rawDeliveryGuide = (order.product as any)?.guideUrl?.trim();
+    const finalDeliveryGuideUrl = rawDeliveryGuide
+      ? (rawDeliveryGuide.startsWith("http://") || rawDeliveryGuide.startsWith("https://")
+          ? rawDeliveryGuide
+          : `https://rinqshop.vercel.app${rawDeliveryGuide.startsWith("/") ? "" : "/"}${rawDeliveryGuide}`)
+      : "";
+
+    const guideNotice = finalDeliveryGuideUrl
+      ? `<blockquote>📚 <b>HƯỚNG DẪN SỬ DỤNG SẢN PHẨM:</b>\n<a href="${finalDeliveryGuideUrl}">👉 Bấm vào đây để xem bài viết hướng dẫn chi tiết</a></blockquote>\n\n`
+      : "";
+
+    const walletDeliveryKeyboard = new InlineKeyboard()
+      .text("📥 Tải file đơn (.txt)", `dl_order:${order.id}`)
+      .text("🛍 Mua tiếp", "menu_products")
+      .row();
+
+    if (finalDeliveryGuideUrl) {
+      walletDeliveryKeyboard.url("📚 Xem hướng dẫn sử dụng", finalDeliveryGuideUrl).row();
+    }
+    walletDeliveryKeyboard.url("💬 Hỗ trợ Admin (@rinq_hotro)", "https://t.me/rinq_hotro");
+
     await ctx.reply(
       `🎉 <b>THANH TOÁN BẰNG SỐ DƯ VÍ THÀNH CÔNG!</b>\n\n` +
       `Đã trừ <b>${order.totalAmount.toLocaleString("vi-VN")} đ</b> từ ví của bạn.\n` +
@@ -2517,14 +2547,11 @@ bot.callbackQuery(/^pay_balance:(DH[A-F0-9]+)$/, async (ctx) => {
       `🔑 <b>Tài nguyên bàn giao:</b>\n` +
       `<code>${keysToDeliver.map((k, i) => `#${i + 1}: ${k}`).join("\n")}</code>\n\n` +
       warrantyNotice +
+      guideNotice +
       `<blockquote>💡 <i>Chạm vào mã để sao chép. Xin trân trọng cảm ơn Quý khách!</i></blockquote>`,
       {
         parse_mode: "HTML",
-        reply_markup: new InlineKeyboard()
-          .text("📥 Tải file đơn (.txt)", `dl_order:${order.id}`)
-          .text("🛍 Mua tiếp", "menu_products")
-          .row()
-          .url("💬 Hỗ trợ Admin (@rinq_hotro)", "https://t.me/rinq_hotro"),
+        reply_markup: walletDeliveryKeyboard,
       }
     );
 
@@ -2679,9 +2706,26 @@ bot.command("duyet", async (ctx) => {
 
   if (order.telegramId) {
     let customerMsg = "";
+    const rawDeliveryGuide = (order.product as any)?.guideUrl?.trim();
+    const finalDeliveryGuideUrl = rawDeliveryGuide
+      ? (rawDeliveryGuide.startsWith("http://") || rawDeliveryGuide.startsWith("https://")
+          ? rawDeliveryGuide
+          : `https://rinqshop.vercel.app${rawDeliveryGuide.startsWith("/") ? "" : "/"}${rawDeliveryGuide}`)
+      : "";
+
+    const customerReplyMarkup = new InlineKeyboard();
+    if (finalDeliveryGuideUrl) {
+      customerReplyMarkup.url("📚 Xem hướng dẫn sử dụng", finalDeliveryGuideUrl).row();
+    }
+    customerReplyMarkup.url("💬 Hỗ trợ Admin (@rinq_hotro)", "https://t.me/rinq_hotro");
+
     if (finalStatus === "PAID" && keysToDeliver.length > 0) {
       const warrantyNotice = order.product?.warranty?.trim()
         ? `<blockquote>🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
+        : "";
+
+      const guideNotice = finalDeliveryGuideUrl
+        ? `<blockquote>📚 <b>HƯỚNG DẪN SỬ DỤNG SẢN PHẨM:</b>\n<a href="${finalDeliveryGuideUrl}">👉 Bấm vào đây để xem bài viết hướng dẫn chi tiết</a></blockquote>\n\n`
         : "";
 
       customerMsg =
@@ -2693,6 +2737,7 @@ bot.command("duyet", async (ctx) => {
         `🔑 <b>Tài nguyên bàn giao:</b>\n` +
         `<code>${keysToDeliver.map((k, i) => `#${i + 1}: ${k}`).join("\n")}</code>\n\n` +
         warrantyNotice +
+        guideNotice +
         `<blockquote>💡 <i>Chạm vào mã để sao chép. Nếu cần hỗ trợ thêm, Quý khách vui lòng liên hệ Admin @rinq_hotro.</i></blockquote>`;
     } else {
       customerMsg =
@@ -2704,7 +2749,7 @@ bot.command("duyet", async (ctx) => {
 
     await bot.api.sendMessage(order.telegramId, customerMsg, {
       parse_mode: "HTML",
-      reply_markup: new InlineKeyboard().url("💬 Hỗ trợ Admin (@rinq_hotro)", "https://t.me/rinq_hotro"),
+      reply_markup: customerReplyMarkup,
     }).catch(() => {});
   }
 

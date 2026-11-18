@@ -498,6 +498,17 @@ export async function POST(req: NextRequest) {
         ? `<blockquote>🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
         : "";
 
+      const rawDeliveryGuide = (order.product as any)?.guideUrl?.trim();
+      const finalDeliveryGuideUrl = rawDeliveryGuide
+        ? (rawDeliveryGuide.startsWith("http://") || rawDeliveryGuide.startsWith("https://")
+            ? rawDeliveryGuide
+            : `https://rinqshop.vercel.app${rawDeliveryGuide.startsWith("/") ? "" : "/"}${rawDeliveryGuide}`)
+        : "";
+
+      const guideNotice = finalDeliveryGuideUrl
+        ? `<blockquote>📚 <b>HƯỚNG DẪN SỬ DỤNG SẢN PHẨM:</b>\n<a href="${finalDeliveryGuideUrl}">👉 Bấm vào đây để xem bài viết hướng dẫn chi tiết</a></blockquote>\n\n`
+        : "";
+
       const message =
         `✦ <b>XÁC NHẬN GIAO DỊCH THÀNH CÔNG</b> ✦\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
@@ -511,21 +522,27 @@ export async function POST(req: NextRequest) {
         `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
         keysText +
         warrantyNotice +
+        guideNotice +
         `<blockquote>💡 <i>Ghi chú: Quý khách chạm trực tiếp vào dòng mã trên để tự động sao chép toàn bộ.</i></blockquote>\n\n` +
         `RINQ SHOP xin chân thành cảm ơn Quý khách đã tin tưởng và đồng hành cùng chúng tôi.\n` +
         `Nếu cần hỗ trợ bảo hành hoặc tư vấn, Quý khách vui lòng liên hệ Admin <b>@rinq_hotro</b> để được phục vụ chu đáo nhất. Trân trọng!`;
 
-      const deliveryKeyboard = {
-        inline_keyboard: [
-          [
-            { text: "📥 Tải file đơn (.txt)", callback_data: `dl_order:${result.order.id}` },
-            { text: "📦 Đơn của tôi", callback_data: "inline_my_orders" },
-          ],
-          [
-            { text: "🛒 Tiếp tục mua sắm", callback_data: "menu_products" },
-            { text: "💬 Hỗ trợ (@rinq_hotro)", url: "https://t.me/rinq_hotro" },
-          ],
+      const inlineButtons: any[][] = [
+        [
+          { text: "📥 Tải file đơn (.txt)", callback_data: `dl_order:${result.order.id}` },
+          { text: "📦 Đơn của tôi", callback_data: "inline_my_orders" },
         ],
+      ];
+      if (finalDeliveryGuideUrl) {
+        inlineButtons.push([{ text: "📚 Xem hướng dẫn sử dụng", url: finalDeliveryGuideUrl }]);
+      }
+      inlineButtons.push([
+        { text: "🛒 Tiếp tục mua sắm", callback_data: "menu_products" },
+        { text: "💬 Hỗ trợ (@rinq_hotro)", url: "https://t.me/rinq_hotro" },
+      ]);
+
+      const deliveryKeyboard = {
+        inline_keyboard: inlineButtons,
       };
 
       try {

@@ -138,7 +138,7 @@ Quy tắc quan trọng:
    - Bạn nhận được (Chi tiết gói / Quota / Thời hạn)
    - Lưu ý khi sử dụng (nếu có)
    - Chính sách bảo hành & Hỗ trợ
-5. TUYỆT ĐỐI KHÔNG tự chèn đường dẫn "Hướng dẫn: /guides/..." hay link website vào trong bài mô tả vì hệ thống đã có nút xem hướng dẫn riêng biệt. Nếu trong văn bản gốc có dòng link hướng dẫn hoặc "Hướng dẫn sử dụng", hãy LỌC BỎ HOÀN TOÀN dòng đó khỏi bài mô tả.`;
+5. Nếu trong văn bản có thông tin hoặc đường dẫn hướng dẫn sử dụng (VD: link /guides/... hoặc link web), hãy giữ lại gọn gàng ở mục ghi chú hoặc mục <b>Hướng dẫn sử dụng:</b> để khách hàng dễ truy cập.`;
 
   switch (tone) {
     case "concise":
@@ -289,16 +289,8 @@ export async function rewriteProductContent(options: RewriteOptions): Promise<Re
         // Sanitize: enforce no decorative emojis
         let cleanedText = candidateText
           .replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
+          .replace(/\n{3,}/g, "\n\n")
           .trim();
-
-        // If description, remove any legacy guide URL block if AI kept or echoed it
-        if (options.type !== "warranty") {
-          cleanedText = cleanedText
-            .replace(/(?:<b>)?(?:[📚📖🔗\s]*)(?:Hướng dẫn sử dụng|Xem hướng dẫn|Link hướng dẫn)[^<\n]*(?:<\/b>)?[\s\n]*(?:https?:\/\/[^\s<\n]+)?/gi, "")
-            .replace(/https?:\/\/rinqshop\.vercel\.app\/guides\/[^\s<\n]+/gi, "")
-            .replace(/\n{3,}/g, "\n\n")
-            .trim();
-        }
 
         return {
           rewrittenText: cleanedText,

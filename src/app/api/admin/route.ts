@@ -1149,7 +1149,28 @@ async function executeAdminAction(body: any) {
         const botToken = getActiveBotToken();
         if (botToken && order.telegramId) {
           let customerMsg = "";
+          const rawDeliveryGuide = (order.product as any)?.guideUrl?.trim();
+          const finalDeliveryGuideUrl = rawDeliveryGuide
+            ? (rawDeliveryGuide.startsWith("http://") || rawDeliveryGuide.startsWith("https://")
+                ? rawDeliveryGuide
+                : `https://rinqshop.vercel.app${rawDeliveryGuide.startsWith("/") ? "" : "/"}${rawDeliveryGuide}`)
+            : "";
+
+          const customerInlineKeyboard: any[][] = [];
+          if (finalDeliveryGuideUrl) {
+            customerInlineKeyboard.push([{ text: "📚 Xem hướng dẫn sử dụng", url: finalDeliveryGuideUrl }]);
+          }
+          customerInlineKeyboard.push([{ text: "💬 Hỗ trợ Admin (@rinq_hotro)", url: "https://t.me/rinq_hotro" }]);
+
           if (finalStatus === "PAID" && keysToDeliver.length > 0) {
+            const warrantyNotice = order.product?.warranty?.trim()
+              ? `<blockquote>🛡️ <b>CHÍNH SÁCH BẢO HÀNH:</b>\n${order.product.warranty.trim()}</blockquote>\n\n`
+              : "";
+
+            const guideNotice = finalDeliveryGuideUrl
+              ? `<blockquote>📚 <b>HƯỚNG DẪN SỬ DỤNG SẢN PHẨM:</b>\n<a href="${finalDeliveryGuideUrl}">👉 Bấm vào đây để xem bài viết hướng dẫn chi tiết</a></blockquote>\n\n`
+              : "";
+
             customerMsg =
               `🎉 <b>ĐƠN HÀNG ĐÃ ĐƯỢC DUYỆT THÀNH CÔNG!</b>\n\n` +
               `Kính gửi Quý khách, đơn hàng <code>#${order.id}</code> của Quý khách đã được Admin kiểm tra và duyệt hoàn tất:\n\n` +
@@ -1158,6 +1179,8 @@ async function executeAdminAction(body: any) {
               `💰 <b>Số tiền:</b> ${order.totalAmount.toLocaleString("vi-VN")} đ\n\n` +
               `🔑 <b>Tài nguyên bàn giao:</b>\n` +
               `<code>${keysToDeliver.map((k, i) => `#${i + 1}: ${k}`).join("\n")}</code>\n\n` +
+              warrantyNotice +
+              guideNotice +
               `<blockquote>💡 <i>Chạm vào mã để sao chép. Nếu cần hỗ trợ thêm, Quý khách vui lòng liên hệ Admin @rinq_hotro.</i></blockquote>`;
           } else {
             customerMsg =
@@ -1175,9 +1198,7 @@ async function executeAdminAction(body: any) {
               text: customerMsg,
               parse_mode: "HTML",
               reply_markup: {
-                inline_keyboard: [
-                  [{ text: "💬 Hỗ trợ Admin (@rinq_hotro)", url: "https://t.me/rinq_hotro" }],
-                ],
+                inline_keyboard: customerInlineKeyboard,
               },
             }),
           }).catch(() => {});
